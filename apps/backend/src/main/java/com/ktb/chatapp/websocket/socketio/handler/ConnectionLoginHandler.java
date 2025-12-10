@@ -19,7 +19,7 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
-
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 /**
  * Socket.IO Chat Handler
  * 어노테이션 기반 이벤트 처리와 인증 흐름을 정의한다.
@@ -35,6 +35,7 @@ public class ConnectionLoginHandler {
     private final UserRooms userRooms;
     private final RoomJoinHandler roomJoinHandler;
     private final RoomLeaveHandler roomLeaveHandler;
+    private final ThreadPoolTaskExecutor socketIoExecutor; // 추가
 
     public ConnectionLoginHandler(
             SocketIOServer socketIOServer,
@@ -42,12 +43,15 @@ public class ConnectionLoginHandler {
             UserRooms userRooms,
             RoomJoinHandler roomJoinHandler,
             RoomLeaveHandler roomLeaveHandler,
-            MeterRegistry meterRegistry) {
+            MeterRegistry meterRegistry,
+            ThreadPoolTaskExecutor socketIoExecutor // 생성자 주입
+    ) {
         this.socketIOServer = socketIOServer;
         this.connectedUsers = connectedUsers;
         this.userRooms = userRooms;
         this.roomJoinHandler = roomJoinHandler;
         this.roomLeaveHandler = roomLeaveHandler;
+        this.socketIoExecutor = socketIoExecutor; // 필드 세팅
 
         // Register gauge metric for concurrent users
         Gauge.builder("socketio.concurrent.users", connectedUsers::size)
@@ -159,18 +163,24 @@ public class ConnectionLoginHandler {
                 "ipAddress", client.getRemoteAddress().toString(),
                 "timestamp", System.currentTimeMillis()
         ));
-        
-        new Thread(() -> {
+
+        // 스레드풀 사용
+        socketIoExecutor.execute(() -> {
             try {
-                Thread.sleep(Duration.ofSeconds(10));
+                Thread.sleep(Duration.ofSeconds(10).toMillis());
+                if (!existingClient.isChannelOpen()) {
+                    return; // 이미 끊겼으면 그냥 종료
+                }
                 existingClient.sendEvent(SESSION_ENDED, Map.of(
                         "reason", "duplicate_login",
                         "message", "다른 기기에서 로그인하여 현재 세션이 종료되었습니다."
                 ));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                log.error("Error in duplicate login notification thread", e);
+                log.error("Error in duplicate login notification task", e);
+            } catch (Exception e) {
+                log.error("Unexpected error in duplicate login notification task", e);
             }
-        }).start();
+        });
     }
 }
