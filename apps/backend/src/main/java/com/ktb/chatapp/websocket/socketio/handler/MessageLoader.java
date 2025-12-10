@@ -54,6 +54,7 @@ public class MessageLoader {
             int limit,
             LocalDateTime before,
             String userId) {
+
         Pageable pageable = PageRequest.of(0, limit, Sort.by("timestamp").descending());
 
         Page<Message> messagePage = messageRepository
@@ -63,17 +64,38 @@ public class MessageLoader {
 
         // DESC로 조회했으므로 ASC로 재정렬 (채팅 UI 표시 순서)
         List<Message> sortedMessages = messages.reversed();
-        
-        var messageIds = sortedMessages.stream().map(Message::getId).toList();
+
+        // 1) 읽음 상태 먼저 업데이트
+        var messageIds = sortedMessages.stream()
+                .map(Message::getId)
+                .toList();
         messageReadStatusService.updateReadStatus(messageIds, userId);
-        
-        // 메시지 응답 생성
+
+        // 2) N+1 제거: senderId를 모아서 한 번에 조회
+        //    - null 필터링 (AI 메시지 등)
+        //    - Set으로 중복 제거
+        var senderIds = sortedMessages.stream()
+                .map(Message::getSenderId)
+                .filter(id -> id != null && !id.isBlank())
+                .collect(Collectors.toSet());
+
+        // sender가 하나도 없을 수도 있으니 방어 코드
+        var userMap = senderIds.isEmpty()
+                ? java.util.Collections.<String, User>emptyMap()
+                : userRepository.findAllById(senderIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        // 3) Message → MessageResponse 매핑 시 Map에서 sender 찾기
         List<MessageResponse> messageResponses = sortedMessages.stream()
                 .map(message -> {
-                    var user = findUserById(message.getSenderId());
-                    return messageResponseMapper.mapToMessageResponse(message, user);
+                    User sender = null;
+                    String senderId = message.getSenderId();
+                    if (senderId != null) {
+                        sender = userMap.get(senderId);   // N+1 대신 Map lookup
+                    }
+                    return messageResponseMapper.mapToMessageResponse(message, sender);
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         boolean hasMore = messagePage.hasNext();
 
@@ -86,15 +108,16 @@ public class MessageLoader {
                 .build();
     }
 
+
     /**
      * AI 경우 null 반환 가능
      */
-    @Nullable
-    private User findUserById(String id) {
-        if (id == null) {
-            return null;
-        }
-        return userRepository.findById(id)
-                .orElse(null);
-    }
+//    @Nullable
+//    private User findUserById(String id) {
+//        if (id == null) {
+//            return null;
+//        }
+//        return userRepository.findById(id)
+//                .orElse(null);
+//    }
 }
