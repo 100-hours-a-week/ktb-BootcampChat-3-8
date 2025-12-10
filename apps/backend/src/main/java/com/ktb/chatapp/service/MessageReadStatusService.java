@@ -5,8 +5,14 @@ import com.ktb.chatapp.repository.MessageRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.mongodb.client.result.UpdateResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 /**
@@ -17,7 +23,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class MessageReadStatusService {
 
-    private final MessageRepository messageRepository;
+    private final MongoTemplate mongoTemplate; // MongoTemplate 사용
 
     /**
      * 메시지 읽음 상태 업데이트
@@ -29,31 +35,28 @@ public class MessageReadStatusService {
         if (messageIds.isEmpty()) {
             return;
         }
-        
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // 이미 readers.userId에 같은 userId가 없는 문서만 업데이트
+        Query query = new Query(Criteria.where("_id").in(messageIds)
+                .and("readers.userId").ne(userId));
+
         Message.MessageReader readerInfo = Message.MessageReader.builder()
                 .userId(userId)
                 .readAt(LocalDateTime.now())
                 .build();
-        
-        try {
-            List<Message> messagesToUpdate = messageRepository.findAllById(messageIds);
-            for (Message message : messagesToUpdate) {
-                if (message.getReaders() == null) {
-                    message.setReaders(new ArrayList<>());
-                }
-                boolean alreadyRead = message.getReaders().stream()
-                        .anyMatch(r -> r.getUserId().equals(userId));
-                if (!alreadyRead) {
-                    message.getReaders().add(readerInfo);
-                }
-                messageRepository.save(message);
-            }
-            
-            log.debug("Read status updated for {} messages by user {}",
-                    messagesToUpdate.size(), userId);
 
-        } catch (Exception e) {
-            log.error("Read status update error for user {}", userId, e);
-        }
+        Update update = new Update().push("readers",
+                Message.MessageReader.builder()
+                        .userId(userId)
+                        .readAt(now)
+                        .build()
+        );
+
+        // 여러 개 문서를 한 번에 update
+        UpdateResult result = mongoTemplate.updateMulti(query, update, Message.class);
+        log.debug("Read status updated for {} messages by user {}",
+                result.getModifiedCount(), userId);
     }
 }
