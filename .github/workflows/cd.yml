@@ -1,0 +1,121 @@
+name: Spring Boot CI/CD
+
+on:
+  push:
+    branches:
+      - feat/main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+      ENCRYPTION_SALT: ${{ secrets.ENCRYPTION_SALT }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      MONGO_URI: ${{ secrets.MONGO_URI }}
+      REDIS_HOST: ${{ secrets.REDIS_HOST }}
+      REDIS_PORT: ${{ secrets.REDIS_PORT }}
+      REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+      PORT: ${{ secrets.PORT }}
+      WS_PORT: ${{ secrets.WS_PORT }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+      SERVER_HOSTS: ${{ secrets.SERVER_HOSTS }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Build backend with Maven
+        working-directory: ./apps/backend
+        run: |
+          chmod +x mvnw
+          ./mvnw -B clean package -DskipTests
+
+      - name: Prepare SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          for HOST in $SERVER_HOSTS; do
+            ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          done
+
+      - name: Set artifact paths
+        id: paths
+        run: |
+          JAR_PATH=$(ls apps/backend/target/*.jar | head -n 1)
+          PROPS_PATH="apps/backend/src/main/resources/application.properties"
+
+          if [ ! -f "$JAR_PATH" ]; then
+            echo "JAR not found in apps/backend/target"
+            exit 1
+          fi
+
+          if [ ! -f "$PROPS_PATH" ]; then
+            echo "application.properties not found at $PROPS_PATH"
+            exit 1
+          fi
+
+          echo "jar_path=$JAR_PATH" >> $GITHUB_OUTPUT
+          echo "props_path=$PROPS_PATH" >> $GITHUB_OUTPUT
+
+      - name: Copy JAR and application.properties to all servers
+        run: |
+          for HOST in $SERVER_HOSTS; do
+            echo "Copying artifacts to $HOST"
+            ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no "$SERVER_USER@$HOST" "
+              mkdir -p /home/$SERVER_USER/backend &&
+              mkdir -p /home/$SERVER_USER/backend/conf
+            "
+            scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
+              "${{ steps.paths.outputs.jar_path }}" \
+              "$SERVER_USER@$HOST:/home/$SERVER_USER/backend/ktb_chat_backend.jar"
+            scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
+              "${{ steps.paths.outputs.props_path }}" \
+              "$SERVER_USER@$HOST:/home/$SERVER_USER/backend/conf/application.properties"
+          done
+
+      - name: Deploy to all servers
+        run: |
+          for HOST in $SERVER_HOSTS; do
+            echo "Deploying to $HOST"
+
+            ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no "$SERVER_USER@$HOST" << EOF
+              set -e
+
+              mkdir -p /home/$SERVER_USER/backend
+              mkdir -p /home/$SERVER_USER/backend/conf
+              cd /home/$SERVER_USER/backend
+
+              cat > .env << ENVEOF
+ENCRYPTION_KEY=${ENCRYPTION_KEY}
+ENCRYPTION_SALT=${ENCRYPTION_SALT}
+JWT_SECRET=${JWT_SECRET}
+MONGO_URI=${MONGO_URI}
+REDIS_HOST=${REDIS_HOST}
+REDIS_PORT=${REDIS_PORT}
+REDIS_PASSWORD=${REDIS_PASSWORD}
+PORT=${PORT}
+WS_PORT=${WS_PORT}
+ENVEOF
+
+              set -a
+              . .env
+              set +a
+
+              PID=\$(pgrep -f "ktb_chat_backend.jar" || true)
+              if [ -n "\$PID" ]; then
+                kill \$PID || true
+                sleep 5
+              fi
+
+              nohup java -jar ktb_chat_backend.jar --spring.config.location=file:./conf/application.properties > app.log 2>&1 &
+EOF
+
+          done

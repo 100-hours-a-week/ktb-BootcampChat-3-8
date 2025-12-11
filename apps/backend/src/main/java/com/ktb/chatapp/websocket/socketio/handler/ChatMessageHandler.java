@@ -83,18 +83,6 @@ public class ChatMessageHandler {
             return;
         }
 
-        SessionValidationResult validation =
-                sessionService.validateSession(socketUser.id(), socketUser.authSessionId());
-        if (!validation.isValid()) {
-            recordError("session_expired");
-            client.sendEvent(ERROR, Map.of(
-                    "code", "SESSION_EXPIRED",
-                    "message", "세션이 만료되었습니다. 다시 로그인해주세요."
-            ));
-            timerSample.stop(createTimer("error", "session_expired"));
-            return;
-        }
-
         // Rate limit check
         RateLimitCheckResult rateLimitResult =
                 rateLimitService.checkRateLimit(socketUser.id(), 10000, Duration.ofMinutes(1));

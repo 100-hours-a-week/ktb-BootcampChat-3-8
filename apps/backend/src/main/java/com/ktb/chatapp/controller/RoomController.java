@@ -290,7 +290,7 @@ public class RoomController {
         }
     }
 
-    private RoomResponse mapToRoomResponse(Room room, String name) {
+    private RoomResponse mapToRoomResponse(Room room, String email) {
         User creator = userRepository.findById(room.getCreator()).orElse(null);
         if (creator == null) {
             throw new RuntimeException("Creator not found for room " + room.getId());
@@ -308,7 +308,9 @@ public class RoomController {
                 .map(UserResponse::from)
                 .toList();
 
-        boolean isCreator = room.getCreator().equals(name);
+        // 현재 사용자 조회 (email 기반)
+        User currentUser = userRepository.findByEmail(email).orElse(null);
+        boolean isCreator = currentUser != null && room.getCreator().equals(currentUser.getId());
 
         // 최근 10분간 메시지 수 조회
         LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);

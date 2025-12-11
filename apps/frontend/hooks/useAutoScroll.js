@@ -1,13 +1,14 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useMemo } from 'react';
+import { throttle } from '../utils/performanceUtils';
 
 /**
  * 채팅 메시지 자동 스크롤 훅
- * 
+ *
  * 특징:
  * - 내가 쓴 메시지: 무조건 최하단 스크롤
  * - 남이 쓴 메시지: 사용자가 하단 근처에 있을 때만 자동 스크롤
  * - 이전 메시지 로딩 시: 스크롤 위치 복원
- * 
+ *
  * @param {Array} messages - 메시지 배열
  * @param {string} currentUserId - 현재 사용자 ID
  * @param {boolean} isLoadingMessages - 이전 메시지 로딩 중 여부
@@ -65,25 +66,36 @@ export const useAutoScroll = (
   }, []);
 
   /**
+   * Throttled scroll handler to improve performance
+   */
+  const throttledHandleScroll = useMemo(
+    () => throttle(() => {
+      // 자동 스크롤 중이면 무시
+      if (isAutoScrollingRef.current) return;
+
+      isNearBottomRef.current = checkIsNearBottom();
+    }, 100),
+    [checkIsNearBottom]
+  );
+
+  /**
    * 스크롤 이벤트 핸들러 - 사용자가 스크롤할 때 위치 추적
    */
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const handleScroll = () => {
-      // 자동 스크롤 중이면 무시
-      if (isAutoScrollingRef.current) return;
-
-      isNearBottomRef.current = checkIsNearBottom();
-    };
-
-    container.addEventListener('scroll', handleScroll, { passive: true });
+    container.addEventListener('scroll', throttledHandleScroll, { passive: true });
 
     return () => {
-      container.removeEventListener('scroll', handleScroll);
+      container.removeEventListener('scroll', throttledHandleScroll);
+
+      // Cancel pending throttled calls
+      if (throttledHandleScroll?.cancel) {
+        throttledHandleScroll.cancel();
+      }
     };
-  }, [checkIsNearBottom]);
+  }, [throttledHandleScroll]);
 
   /**
    * 이전 메시지 로딩 시작 시 스크롤 위치 저장

@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState, forwardRef } from 'react';
-import { 
+import React, { useCallback, useEffect, useRef, useState, forwardRef, useMemo } from 'react';
+import {
   LikeIcon,
   AttachFileOutlineIcon,
   SendIcon
@@ -9,6 +9,7 @@ import EmojiPicker from './EmojiPicker';
 import MentionDropdown from './MentionDropdown';
 import FilePreview from './FilePreview';
 import fileService from '@/services/fileService';
+import { debounce } from '@/utils/performanceUtils';
 
 const ChatInput = forwardRef(({
   message = '',
@@ -170,8 +171,13 @@ const ChatInput = forwardRef(({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('paste', handlePaste);
       files.forEach(file => URL.revokeObjectURL(file.url));
+
+      // Cancel pending debounced position calculations
+      if (debouncedCalculatePosition?.cancel) {
+        debouncedCalculatePosition.cancel();
+      }
     };
-  }, [showEmojiPicker, setShowEmojiPicker, files, messageInputRef, handleFileValidationAndPreview]);
+  }, [showEmojiPicker, setShowEmojiPicker, files, messageInputRef, handleFileValidationAndPreview, debouncedCalculatePosition]);
 
   const calculateMentionPosition = useCallback((textarea, atIndex) => {
     // Get all text before @ symbol
@@ -179,7 +185,7 @@ const ChatInput = forwardRef(({
     const lines = textBeforeAt.split('\n');
     const currentLineIndex = lines.length - 1;
     const currentLineText = lines[currentLineIndex];
-    
+
     // Create a hidden div to measure exact text width
     const measureDiv = document.createElement('div');
     measureDiv.style.position = 'absolute';
@@ -192,11 +198,11 @@ const ChatInput = forwardRef(({
     measureDiv.style.letterSpacing = window.getComputedStyle(textarea).letterSpacing;
     measureDiv.style.textTransform = window.getComputedStyle(textarea).textTransform;
     measureDiv.textContent = currentLineText;
-    
+
     document.body.appendChild(measureDiv);
     const textWidth = measureDiv.offsetWidth;
     document.body.removeChild(measureDiv);
-    
+
     // Get textarea position and compute styles
     const textareaRect = textarea.getBoundingClientRect();
     const computedStyle = window.getComputedStyle(textarea);
@@ -204,18 +210,18 @@ const ChatInput = forwardRef(({
     const paddingTop = parseInt(computedStyle.paddingTop);
     const lineHeight = parseInt(computedStyle.lineHeight) || (parseFloat(computedStyle.fontSize) * 1.5);
     const scrollTop = textarea.scrollTop;
-    
+
     // Calculate exact position of @ symbol
     let left = textareaRect.left + paddingLeft + textWidth;
     // Position directly above the @ character (with small gap)
     let top = textareaRect.top + paddingTop + (currentLineIndex * lineHeight) - scrollTop;
-    
+
     // Ensure dropdown stays within viewport
     const dropdownWidth = 320; // Approximate width
     const dropdownHeight = 250; // Approximate height
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    
+
     // Adjust horizontal position if needed
     if (left + dropdownWidth > viewportWidth) {
       left = viewportWidth - dropdownWidth - 10;
@@ -223,10 +229,10 @@ const ChatInput = forwardRef(({
     if (left < 10) {
       left = 10;
     }
-    
+
     // Position dropdown 40px lower to be closer to the @ cursor
     top = top + 40; // Move 40px down from the cursor line
-    
+
     // If not enough space above, show below
     if (top - dropdownHeight < 10) {
       top = textareaRect.top + paddingTop + ((currentLineIndex + 1) * lineHeight) - scrollTop + 2;
@@ -234,9 +240,18 @@ const ChatInput = forwardRef(({
       // Show above - adjust top to account for dropdown height
       top = top - dropdownHeight;
     }
-    
+
     return { top, left };
   }, []);
+
+  // Debounced version of position calculation to improve performance during fast typing
+  const debouncedCalculatePosition = useMemo(
+    () => debounce((target, atIndex) => {
+      const position = calculateMentionPosition(target, atIndex);
+      setMentionPosition(position);
+    }, 150),
+    [calculateMentionPosition]
+  );
 
   const handleInputChange = useCallback((e) => {
     const value = e.target.value;
@@ -249,21 +264,20 @@ const ChatInput = forwardRef(({
     if (lastAtSymbol !== -1) {
       const textAfterAt = textBeforeCursor.slice(lastAtSymbol + 1);
       const hasSpaceAfterAt = textAfterAt.includes(' ');
-      
+
       if (!hasSpaceAfterAt) {
         setMentionFilter(textAfterAt.toLowerCase());
         setShowMentionList(true);
         setMentionIndex(0);
-        
-        // Calculate and set mention dropdown position
-        const position = calculateMentionPosition(e.target, lastAtSymbol);
-        setMentionPosition(position);
+
+        // Use debounced position calculation to improve performance during fast typing
+        debouncedCalculatePosition(e.target, lastAtSymbol);
         return;
       }
     }
-    
+
     setShowMentionList(false);
-  }, [onMessageChange, setMentionFilter, setShowMentionList, setMentionIndex, calculateMentionPosition]);
+  }, [onMessageChange, setMentionFilter, setShowMentionList, setMentionIndex, debouncedCalculatePosition]);
 
   const handleMentionSelect = useCallback((user) => {
     if (!messageInputRef?.current) return;

@@ -77,26 +77,23 @@ export const useSocketHandling = (router, maxRetries = 5) => { // 최대 재시�
     if (isReconnecting) return;
 
     try {
-      if (!currentUser?.token || !currentUser?.sessionId) {
+      if (!currentUser) {
         throw new Error('Invalid user credentials');
       }
 
       setError(null);
       setRetryCount(0);
       setIsReconnecting(true);
-      
+
       cleanup();
-      
+
       if (socketRef.current) {
         socketRef.current.disconnect();
         setConnected(false);
       }
 
+      // HTTP Only Cookie가 자동으로 서버에 전송되므로 auth 옵션 불필요
       const socket = await socketService.connect({
-        auth: {
-          token: currentUser.token,
-          sessionId: currentUser.sessionId
-        },
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: maxRetries,
