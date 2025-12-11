@@ -46,8 +46,10 @@ public class MessageReadStatusService {
                 if (!alreadyRead) {
                     message.getReaders().add(readerInfo);
                 }
-                messageRepository.save(message);
             }
+
+            // N번 save → 1번 saveAll 로 변경
+            messageRepository.saveAll(messagesToUpdate);
             
             log.debug("Read status updated for {} messages by user {}",
                     messagesToUpdate.size(), userId);
