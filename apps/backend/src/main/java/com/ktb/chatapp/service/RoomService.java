@@ -222,28 +222,28 @@ public class RoomService {
             // 서비스 상태 정보 구성
             Map<String, HealthResponse.ServiceHealth> services = new HashMap<>();
             services.put("database", HealthResponse.ServiceHealth.builder()
-                .connected(isMongoConnected)
-                .latency(latency)
-                .build());
+                    .connected(isMongoConnected)
+                    .latency(latency)
+                    .build());
 
             return HealthResponse.builder()
-                .success(true)
-                .services(services)
-                .lastActivity(lastActivity)
-                .build();
+                    .success(true)
+                    .services(services)
+                    .lastActivity(lastActivity)
+                    .build();
 
         } catch (Exception e) {
             log.error("Health check 실행 중 에러 발생", e);
             return HealthResponse.builder()
-                .success(false)
-                .services(new HashMap<>())
-                .build();
+                    .success(false)
+                    .services(new HashMap<>())
+                    .build();
         }
     }
 
     public Room createRoom(CreateRoomRequest createRoomRequest, String name) {
         User creator = userRepository.findByEmail(name)
-            .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다: " + name));
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다: " + name));
 
         Room room = new Room();
         room.setName(createRoomRequest.getName().trim());
@@ -259,7 +259,7 @@ public class RoomService {
         room.addParticipant(creator.getId());
 
         Room savedRoom = roomRepository.save(room);
-        
+
         // Publish event for room created
         try {
             RoomResponse roomResponse = mapToRoomResponse(savedRoom, name);
@@ -267,7 +267,7 @@ public class RoomService {
         } catch (Exception e) {
             log.error("roomCreated 이벤트 발행 실패", e);
         }
-        
+
         return savedRoom;
     }
 
@@ -283,7 +283,7 @@ public class RoomService {
 
         Room room = roomOpt.get();
         User user = userRepository.findByEmail(name)
-            .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다: " + name));
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다: " + name));
 
         // 비밀번호 확인
         if (room.isHasPassword()) {
@@ -298,7 +298,7 @@ public class RoomService {
             room.getParticipantIds().add(user.getId());
             room = roomRepository.save(room);
         }
-        
+
         // Publish event for room updated
         try {
             RoomResponse roomResponse = mapToRoomResponse(room, name);
@@ -319,10 +319,10 @@ public class RoomService {
         }
 
         List<User> participants = room.getParticipantIds().stream()
-            .map(userRepository::findById)
-            .filter(Optional::isPresent)
-            .map(Optional::get)
-            .toList();
+                .map(userRepository::findById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
 
         // 최근 10분간 메시지 수 조회
         LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
@@ -331,28 +331,28 @@ public class RoomService {
         // 현재 사용자 조회 (email 기반)
         User currentUser = userRepository.findByEmail(email).orElse(null);
         boolean isCreator = creator != null && currentUser != null
-            && creator.getId().equals(currentUser.getId());
+                && creator.getId().equals(currentUser.getId());
 
         return RoomResponse.builder()
-            .id(room.getId())
-            .name(room.getName() != null ? room.getName() : "제목 없음")
-            .hasPassword(room.isHasPassword())
-            .creator(creator != null ? UserResponse.builder()
-                .id(creator.getId())
-                .name(creator.getName() != null ? creator.getName() : "알 수 없음")
-                .email(creator.getEmail() != null ? creator.getEmail() : "")
-                .build() : null)
-            .participants(participants.stream()
-                .filter(p -> p != null && p.getId() != null)
-                .map(p -> UserResponse.builder()
-                    .id(p.getId())
-                    .name(p.getName() != null ? p.getName() : "알 수 없음")
-                    .email(p.getEmail() != null ? p.getEmail() : "")
-                    .build())
-                .collect(Collectors.toList()))
-            .createdAtDateTime(room.getCreatedAt())
-            .isCreator(isCreator)
-            .recentMessageCount((int) recentMessageCount)
-            .build();
+                .id(room.getId())
+                .name(room.getName() != null ? room.getName() : "제목 없음")
+                .hasPassword(room.isHasPassword())
+                .creator(creator != null ? UserResponse.builder()
+                        .id(creator.getId())
+                        .name(creator.getName() != null ? creator.getName() : "알 수 없음")
+                        .email(creator.getEmail() != null ? creator.getEmail() : "")
+                        .build() : null)
+                .participants(participants.stream()
+                        .filter(p -> p != null && p.getId() != null)
+                        .map(p -> UserResponse.builder()
+                                .id(p.getId())
+                                .name(p.getName() != null ? p.getName() : "알 수 없음")
+                                .email(p.getEmail() != null ? p.getEmail() : "")
+                                .build())
+                        .collect(Collectors.toList()))
+                .createdAtDateTime(room.getCreatedAt())
+                .isCreator(isCreator)
+                .recentMessageCount((int) recentMessageCount)
+                .build();
     }
 }
