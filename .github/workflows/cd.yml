@@ -116,6 +116,6 @@ jobs:
               fi
 
               nohup java -jar ktb_chat_backend.jar --spring.config.location=file:./conf/application.properties > app.log 2>&1 &
-EOF
+            EOF
 
           done
