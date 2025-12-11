@@ -113,12 +113,16 @@ public class RoomJoinHandler {
                 return;
             }
 
-            // 참가자 정보 조회
-            List<UserResponse> participants = roomOpt.get().getParticipantIds()
-                    .stream()
-                    .map(userRepository::findById)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
+            // 참가자 정보 조회 (N+1해결)
+            var participantIds = roomOpt.get().getParticipantIds();
+
+            Map<String, User> participantMap = userRepository.findAllById(participantIds).stream()
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+
+            List<UserResponse> participants = participantIds.stream()
+                    .map(participantMap::get)
+                    .filter(Objects::nonNull)
                     .map(UserResponse::from)
                     .toList();
             

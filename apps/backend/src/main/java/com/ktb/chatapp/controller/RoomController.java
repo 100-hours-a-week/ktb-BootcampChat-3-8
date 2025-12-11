@@ -291,20 +291,25 @@ public class RoomController {
     }
 
     private RoomResponse mapToRoomResponse(Room room, String email) {
-        User creator = userRepository.findById(room.getCreator()).orElse(null);
+
+        var userIdsToLoad = new HashSet<String>();
+        userIdsToLoad.add(room.getCreator());
+        userIdsToLoad.addAll(room.getParticipantIds());
+
+        Map<String, User> userMap = userRepository.findAllById(userIdsToLoad).stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+
+        User creator = userMap.get(room.getCreator());
+
         if (creator == null) {
             throw new RuntimeException("Creator not found for room " + room.getId());
         }
         UserResponse creatorSummary = UserResponse.from(creator);
         List<UserResponse> participantSummaries = room.getParticipantIds()
                 .stream()
-                .map(userRepository::findById).peek(optUser -> {
-                    if (optUser.isEmpty()) {
-                        log.warn("Participant not found: roomId={}, userId={}", room.getId(), optUser);
-                    }
-                })
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(userMap::get)
+                .filter(Objects::nonNull)
                 .map(UserResponse::from)
                 .toList();
 
