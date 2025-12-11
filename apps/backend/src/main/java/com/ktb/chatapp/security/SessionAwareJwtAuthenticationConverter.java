@@ -1,8 +1,7 @@
 package com.ktb.chatapp.security;
 
 import com.ktb.chatapp.exception.SessionExpiredException;
-import com.ktb.chatapp.service.SessionService;
-import com.ktb.chatapp.service.SessionValidationResult;
+import com.ktb.chatapp.service.JwtDenyListService;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,55 +19,62 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @Slf4j
 public class SessionAwareJwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
-    
-    private final SessionService sessionService;
+
+    private final JwtDenyListService denyListService;
     private final JwtGrantedAuthoritiesConverter jwtGrantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
     
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
         // 1. JWT에서 사용자 이메일 및 ID 추출
-        String email = jwt.getSubject();  // subject는 이메일
-        String userId = jwt.getClaimAsString("userId");  // userId는 별도 claim
-        
-        // 2. JWT 클레임에서 세션 ID 추출
-        String sessionId = jwt.getClaimAsString("sessionId");
-        
-        // 3. userId 유효성 검증
+        String email = jwt.getSubject();
+        String userId = jwt.getClaimAsString("userId");
+        String jti = jwt.getId();
+        Long sessionVersion = jwt.getClaim("sessionVersion");
+
+        // 2. userId 유효성 검증
         if (userId == null) {
             log.warn("JWT missing userId claim for email: {}", email);
             throw new SessionExpiredException("Missing userId in JWT");
         }
-        
-        // 4. 세션 검증 (필수)
-        if (sessionId == null) {
-            log.warn("JWT missing sessionId claim for user: {}", userId);
-            throw new SessionExpiredException("Missing sessionId in JWT");
+
+        // 3. JTI 유효성 검증
+        if (jti == null) {
+            log.warn("JWT missing JTI claim for user: {}", userId);
+            throw new SessionExpiredException("Missing JTI in JWT");
         }
-        
-        SessionValidationResult validation =
-            sessionService.validateSession(userId, sessionId);
-        
-        if (!validation.isValid()) {
-            log.debug("Session validation failed: {} - {}",
-                validation.getError(), validation.getMessage());
-            throw new SessionExpiredException(validation.getMessage());
+
+        // 4. DenyList 확인
+        if (denyListService.isTokenDenied(jti)) {
+            log.warn("Token is in denylist: {}", jti);
+            throw new SessionExpiredException("Token has been revoked");
         }
-        
-        // 5. Authorities 생성 (기본적으로 빈 리스트)
+
+        // 5. Session Version 확인 (단일 세션 정책)
+        if (sessionVersion == null) {
+            log.warn("JWT missing sessionVersion claim for user: {}", userId);
+            throw new SessionExpiredException("Missing sessionVersion in JWT");
+        }
+
+        if (!denyListService.isSessionVersionValid(userId, sessionVersion)) {
+            log.warn("Session version mismatch for user: {}", userId);
+            throw new SessionExpiredException("Session has been invalidated");
+        }
+
+        // 6. Authorities 생성
         Collection<GrantedAuthority> authorities = jwtGrantedAuthoritiesConverter.convert(jwt);
-        
-        // 6. JwtAuthenticationToken 생성 with details
+
+        // 7. JwtAuthenticationToken 생성 with details
         JwtAuthenticationToken authenticationToken = new JwtAuthenticationToken(jwt, authorities, email);
-        
-        // 7. Details에 userId와 sessionId 포함
+
+        // 8. Details에 userId 포함 (sessionId는 제거)
         Map<String, Object> details = new HashMap<>();
         details.put("userId", userId);
-        details.put("sessionId", sessionId);
         details.put("email", email);
+        details.put("jti", jti);
         authenticationToken.setDetails(details);
-        
+
         log.debug("JWT authentication successful for user: {} (email: {})", userId, email);
-        
+
         return authenticationToken;
     }
 }

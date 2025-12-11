@@ -105,7 +105,7 @@ channels:
       **에러 코드 목록:**
 
       **인증/세션 관련:**
-      - `SESSION_EXPIRED`: 세션이 만료되었거나 인증 정보가 유효하지 않음
+      - `SESSION_EXPIRED`: 인증 정보가 유효하지 않음
       - `UNAUTHORIZED`: 인증이 필요한 작업을 시도함
 
       **메시지 관련:**
@@ -258,7 +258,7 @@ operations:
 
       **예외 응답 (error 이벤트):**
       - `MESSAGE_ERROR`: 메시지 데이터 없음, 사용자 없음, 채팅방 권한 없음, 파일 오류
-      - `SESSION_EXPIRED`: 세션 만료
+      - `SESSION_EXPIRED`: 인증 정보가 유효하지 않음.
       - `MESSAGE_REJECTED`: 금칙어 포함
 
   sendJoinRoom:
@@ -1143,7 +1143,7 @@ components:
             에러 코드 (optional - 일부 응답에서는 제공되지 않을 수 있음).
 
             **인증/세션 관련:**
-            - `SESSION_EXPIRED`: 세션이 만료되었거나 인증 정보가 유효하지 않음
+            - `SESSION_EXPIRED`: 인증 정보가 유효하지 않음
             - `UNAUTHORIZED`: 인증이 필요한 작업을 시도함
 
             **메시지 관련:**

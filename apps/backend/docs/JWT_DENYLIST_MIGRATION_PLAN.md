@@ -32,18 +32,18 @@ git checkout -b feature/jwt-denylist-phase3
 
 **체크리스트:**
 
-- [ ] 현재 코드 백업
+- [X] 현재 코드 백업
   ```bash
   git tag backup-before-jwt-denylist
   git push origin backup-before-jwt-denylist
   ```
 
-- [ ] MongoDB Session 데이터 백업 (필요시)
+- [X] MongoDB Session 데이터 백업 (필요시)
   ```bash
   mongodump --db chatapp --collection sessions --out ./backup
   ```
 
-- [ ] 롤백 시나리오 문서화
+- [X] 롤백 시나리오 문서화
   - Feature Flag 사용 고려
   - 점진적 배포 계획
 
@@ -75,7 +75,7 @@ git checkout -b feature/jwt-denylist-phase3
 
 **작업:**
 
-- [ ] `RedisConfig.java` 생성 또는 수정
+- [X] `RedisConfig.java` 생성 또는 수정
   - 위치: `src/main/java/com/ktb/chatapp/config/RedisConfig.java`
   - RedisTemplate Bean 등록
   - String Serializer 설정
@@ -93,7 +93,7 @@ git checkout -b feature/jwt-denylist-phase3
 
 **작업:**
 
-- [ ] `JwtDenyListService.java` 생성
+- [X] `JwtDenyListService.java` 생성
   - 위치: `src/main/java/com/ktb/chatapp/service/JwtDenyListService.java`
   - `denyToken()` 메서드 구현
   - `isTokenDenied()` 메서드 구현
@@ -111,7 +111,7 @@ git checkout -b feature/jwt-denylist-phase3
 
 **작업:**
 
-- [ ] `JwtDenyListServiceTest.java` 작성
+- [X] `JwtDenyListServiceTest.java` 작성
   - 위치: `src/test/java/com/ktb/chatapp/service/JwtDenyListServiceTest.java`
   - DenyToken 테스트
   - SessionVersion 테스트
@@ -132,7 +132,7 @@ git checkout -b feature/jwt-denylist-phase3
 
 **작업:**
 
-- [ ] `JwtService.java` 수정
+- [] `JwtService.java` 수정
   - JTI (JWT ID) 생성 및 추가
   - SessionVersion claim 추가
   - `extractJti()` 메서드 추가
@@ -153,7 +153,7 @@ git checkout -b feature/jwt-denylist-phase3
 
 **작업:**
 
-- [ ] `SessionAwareJwtAuthenticationConverter.java` 수정
+- [X] `SessionAwareJwtAuthenticationConverter.java` 수정
   - SessionService 의존성 제거
   - JwtDenyListService 의존성 추가
   - DenyList 확인 로직 추가
@@ -174,7 +174,7 @@ git checkout -b feature/jwt-denylist-phase3
 
 **작업:**
 
-- [ ] `AuthController.java` 수정
+- [X] `AuthController.java` 수정
   - SessionService 제거, JwtDenyListService 추가
   - `login()` 메서드:
     - SessionVersion 증가 로직 추가
@@ -206,7 +206,7 @@ git checkout -b feature/jwt-denylist-phase3
 
 **작업:**
 
-- [ ] 로그인 플로우 테스트
+- [X] 로그인 플로우 테스트
   ```bash
   # 로그인 요청
   curl -X POST http://localhost:8080/api/auth/login \
@@ -218,7 +218,7 @@ git checkout -b feature/jwt-denylist-phase3
   redis-cli GET "jwt:session:version:USER_ID"
   ```
 
-- [ ] 로그아웃 플로우 테스트
+- [X] 로그아웃 플로우 테스트
   ```bash
   # 로그아웃 요청
   curl -X POST http://localhost:8080/api/auth/logout \
@@ -228,7 +228,7 @@ git checkout -b feature/jwt-denylist-phase3
   redis-cli KEYS "jwt:denylist:*"
   ```
 
-- [ ] 단일 세션 정책 테스트
+- [X] 단일 세션 정책 테스트
   ```bash
   # 1. 첫 로그인 → JWT1
   # 2. 두 번째 로그인 → JWT2
@@ -244,7 +244,7 @@ git checkout -b feature/jwt-denylist-phase3
 
 **작업:**
 
-- [ ] `CookieUtil.java` 생성
+- [X] `CookieUtil.java` 생성
   - 위치: `src/main/java/com/ktb/chatapp/util/CookieUtil.java`
   - `addJwtCookie()` 메서드 구현
   - `deleteJwtCookie()` 메서드 구현
@@ -261,7 +261,7 @@ git checkout -b feature/jwt-denylist-phase3
 
 **작업:**
 
-- [ ] `CustomBearerTokenResolver.java` 수정
+- [X] `CustomBearerTokenResolver.java` 수정
   - Cookie에서 JWT 추출 로직 추가 (1순위)
   - Authorization 헤더 지원 (2순위, 하위 호환)
   - x-auth-token 헤더 지원 (3순위, 하위 호환)
@@ -278,7 +278,7 @@ git checkout -b feature/jwt-denylist-phase3
 
 **작업:**
 
-- [ ] `AuthController.java` 수정
+- [X] `AuthController.java` 수정
   - `login()` 메서드에 HttpServletResponse 파라미터 추가
   - JWT를 Cookie에 설정
   - `logout()` 메서드에 Cookie 삭제 로직 추가
@@ -288,7 +288,7 @@ git checkout -b feature/jwt-denylist-phase3
 
 **작업:**
 
-- [ ] `SecurityConfig.java` 수정
+- [X] `SecurityConfig.java` 수정
   - `allowCredentials: true` 설정
   - `allowedOrigins: "*"` 제거
   - 구체적인 도메인 명시 (예: http://localhost:3000)
@@ -301,7 +301,7 @@ git checkout -b feature/jwt-denylist-phase3
 
 **작업:**
 
-- [ ] `application.yml` 수정
+- [X] `application.yml` 수정
   ```yaml
   app:
     jwt:

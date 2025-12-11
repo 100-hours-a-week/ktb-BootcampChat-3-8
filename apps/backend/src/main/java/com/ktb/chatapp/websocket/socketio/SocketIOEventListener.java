@@ -14,7 +14,6 @@ import com.ktb.chatapp.event.AiMessageSavedEvent;
 import com.ktb.chatapp.event.AiMessageStartEvent;
 import com.ktb.chatapp.event.RoomCreatedEvent;
 import com.ktb.chatapp.event.RoomUpdatedEvent;
-import com.ktb.chatapp.event.SessionEndedEvent;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,20 +28,6 @@ import org.springframework.stereotype.Component;
 public class SocketIOEventListener {
 
     private final SocketIOServer socketIOServer;
-
-    @EventListener
-    public void handleSessionEndedEvent(SessionEndedEvent event) {
-        try {
-            socketIOServer.getRoomOperations("user:" + event.getUserId())
-                    .sendEvent("session_ended", Map.of(
-                            "reason", event.getReason(),
-                            "message", event.getMessage()
-                    ));
-            log.info("session_ended 이벤트 발송: userId={}, reason={}", event.getUserId(), event.getReason());
-        } catch (Exception e) {
-            log.error("session_ended 이벤트 발송 실패: userId={}", event.getUserId(), e);
-        }
-    }
 
     @EventListener
     public void handleRoomCreatedEvent(RoomCreatedEvent event) {

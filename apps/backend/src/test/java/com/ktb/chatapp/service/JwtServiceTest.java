@@ -32,12 +32,11 @@ class JwtServiceTest {
     @DisplayName("토큰 생성 성공")
     void generateToken_Success() {
         // Given
-        String sessionId = "test-session-id";
         String email = "test@example.com";
         String userId = "user-123";
 
         // When
-        String token = jwtService.generateToken(sessionId, email, userId);
+        String token = jwtService.generateToken(email, userId);
 
         // Then
         assertNotNull(token);
@@ -48,7 +47,7 @@ class JwtServiceTest {
     @DisplayName("토큰 검증 - 유효한 토큰")
     void validateToken_ValidToken_Success() {
         // Given
-        String token = jwtService.generateToken("session-1", "user@test.com", "user-1");
+        String token = jwtService.generateToken("user@test.com", "user-1");
 
         // When
         Boolean isValid = jwtService.validateToken(token);
@@ -62,7 +61,7 @@ class JwtServiceTest {
     void extractEmail_Success() {
         // Given
         String email = "test@example.com";
-        String token = jwtService.generateToken("session-1", email, "user-1");
+        String token = jwtService.generateToken(email, "user-1");
 
         // When
         String extractedEmail = jwtService.extractEmail(token);
@@ -76,7 +75,7 @@ class JwtServiceTest {
     void extractUserId_Success() {
         // Given
         String userId = "user-123";
-        String token = jwtService.generateToken("session-1", "test@example.com", userId);
+        String token = jwtService.generateToken("test@example.com", userId);
 
         // When
         String extractedUserId = jwtService.extractUserId(token);
@@ -86,24 +85,10 @@ class JwtServiceTest {
     }
 
     @Test
-    @DisplayName("토큰에서 세션 ID 추출")
-    void extractSessionId_Success() {
-        // Given
-        String sessionId = "session-abc-123";
-        String token = jwtService.generateToken(sessionId, "test@example.com", "user-1");
-
-        // When
-        String extractedSessionId = jwtService.extractSessionId(token);
-
-        // Then
-        assertEquals(sessionId, extractedSessionId);
-    }
-
-    @Test
     @DisplayName("토큰 만료 시간 확인")
     void extractExpiration_Success() {
         // Given
-        String token = jwtService.generateToken("session-1", "test@example.com", "user-1");
+        String token = jwtService.generateToken("test@example.com", "user-1");
 
         // When
         Instant expiration = jwtService.extractExpiration(token);
