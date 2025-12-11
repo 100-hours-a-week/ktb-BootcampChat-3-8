@@ -82,19 +82,43 @@ public class JwtConfig {
 
     /**
      * Custom JWT Validator
-     * sessionId와 userId 클레임이 존재하는지 검증
+     * jti, userId, sessionVersion 클레임이 존재하는지 검증
      */
     private static class CustomJwtValidator implements OAuth2TokenValidator<Jwt> {
-        
+
         @Override
         public OAuth2TokenValidatorResult validate(Jwt jwt) {
+            // jti 클레임 검증
+            String jti = jwt.getId();
+            if (jti == null || jti.isEmpty()) {
+                BearerTokenError error = new BearerTokenError(
+                    "invalid_token",
+                    org.springframework.http.HttpStatus.UNAUTHORIZED,
+                    "Missing required claim: jti",
+                    null
+                );
+                return OAuth2TokenValidatorResult.failure(error);
+            }
+
             // userId 클레임 검증
             String userId = jwt.getClaimAsString("userId");
             if (userId == null || userId.isEmpty()) {
                 BearerTokenError error = new BearerTokenError(
                     "invalid_token",
-                    null,
+                    org.springframework.http.HttpStatus.UNAUTHORIZED,
                     "Missing required claim: userId",
+                    null
+                );
+                return OAuth2TokenValidatorResult.failure(error);
+            }
+
+            // sessionVersion 클레임 검증
+            Long sessionVersion = jwt.getClaim("sessionVersion");
+            if (sessionVersion == null) {
+                BearerTokenError error = new BearerTokenError(
+                    "invalid_token",
+                    org.springframework.http.HttpStatus.UNAUTHORIZED,
+                    "Missing required claim: sessionVersion",
                     null
                 );
                 return OAuth2TokenValidatorResult.failure(error);
