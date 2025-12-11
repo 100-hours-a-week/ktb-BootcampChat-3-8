@@ -48,7 +48,7 @@ public class JwtConfig {
             .macAlgorithm(MacAlgorithm.HS256)
             .build();
 
-        // Custom Validator 추가 (sessionId, userId 클레임 검증)
+        // Custom Validator 추가 (userId 클레임 검증)
         OAuth2TokenValidator<Jwt> validator = new CustomJwtValidator();
         OAuth2TokenValidator<Jwt> defaultValidators = JwtValidators.createDefault();
         
@@ -88,18 +88,6 @@ public class JwtConfig {
         
         @Override
         public OAuth2TokenValidatorResult validate(Jwt jwt) {
-            // sessionId 클레임 검증
-            String sessionId = jwt.getClaimAsString("sessionId");
-            if (sessionId == null || sessionId.isEmpty()) {
-                BearerTokenError error = new BearerTokenError(
-                    "invalid_token",
-                    null,
-                    "Missing required claim: sessionId",
-                    null
-                );
-                return OAuth2TokenValidatorResult.failure(error);
-            }
-
             // userId 클레임 검증
             String userId = jwt.getClaimAsString("userId");
             if (userId == null || userId.isEmpty()) {
