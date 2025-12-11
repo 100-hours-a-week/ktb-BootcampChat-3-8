@@ -61,9 +61,23 @@ make verify-java
 | `ENCRYPTION_KEY` | ✅ | 없음 | AES-256 암복호화를 위한 64자리 HEX 키 |
 | `ENCRYPTION_SALT` | ✅ | 없음 | 암복호화에 사용하는 솔트 값             |
 | `JWT_SECRET` | ✅ | 없음 | HMAC-SHA256 JWT 서명 비밀키      |
-| `MONGO_URI` | ✅ | `mongodb://localhost:27017/bootcamp-chat` | MongoDB 연결 문자열              |
-| `REDIS_HOST` | ✅ | `-` | Redis 연결 문자열                |
-| `REDIS_PORT` | ✅ | `-` | Redis 연결 문자열                |
+| `MONGO_MODE` | ✅ | `standalone` | MongoDB 동작 모드 (`standalone`/`replica`) |
+| `MONGO_HOST` | ✅ | `localhost` | Standalone 모드 MongoDB 호스트          |
+| `MONGO_PORT` | ✅ | `27017` | Standalone 모드 MongoDB 포트            |
+| `MONGO_DATABASE` | ✅ | `bootcamp-chat` | 기본 DB 이름                     |
+| `MONGO_USERNAME` | ❌ | 빈값 | MongoDB 계정 (필요 시)                  |
+| `MONGO_PASSWORD` | ❌ | 빈값 | MongoDB 패스워드 (필요 시)              |
+| `MONGO_AUTH_DB` | ❌ | `admin` | 사용자가 생성된 DB (`admin` 등, 접속 DB와 다르면 설정) |
+| `MONGO_REPLICA_SET_NAME` | ❌ | `rs0` | ReplicaSet 모드 사용 시 이름        |
+| `MONGO_REPLICA_HOSTS` | ❌ | 빈값 | ReplicaSet 모드 host:port 목록        |
+| `MONGO_REPLICA_OPTIONS` | ❌ | `readPreference=primaryPreferred&w=majority&retryWrites=true` | ReplicaSet 커넥션 옵션 |
+| `MONGO_URI` | ❌ | 빈값 | 직접 커넥션 문자열(설정 시 최우선 적용)     |
+| `REDIS_MODE` | ✅ | `standalone` | Redis 동작 모드 (`standalone`/`cluster`) |
+| `REDIS_HOST` | ✅ | `localhost` | Standalone 모드 Redis 호스트          |
+| `REDIS_PORT` | ✅ | `6379` | Standalone 모드 Redis 포트            |
+| `REDIS_PASSWORD` | ❌ | 빈값 | Redis 패스워드 (필요 시)              |
+| `REDIS_CLUSTER_NODES` | ❌ | 빈값 | Cluster 모드 host:port 목록          |
+| `REDIS_TIMEOUT` | ❌ | `3000` | Redis 커맨드 타임아웃(ms)            |
 | `PORT` | ✅ | `5001` | HTTP API 포트 (`server.port`) |
 | `WS_PORT` | ✅ | `5002` | Socket.IO 서버 포트             |
 | `OPENAI_API_KEY` | ❌ | `your_openai_api_key_here` | OpenAI 호출용 API Key          |
