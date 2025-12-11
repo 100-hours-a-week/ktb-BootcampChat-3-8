@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - feat/main
-  pull_request:
-    branches:
-      - feat/main
 
 jobs:
   deploy:
@@ -28,6 +25,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Build backend with Maven
+        working-directory: ./apps/backend
+        run: |
+          chmod +x mvnw
+          ./mvnw -B clean package -DskipTests
+
       - name: Prepare SSH Key
         run: |
           mkdir -p ~/.ssh
@@ -40,11 +49,11 @@ jobs:
       - name: Set artifact paths
         id: paths
         run: |
-          JAR_PATH="apps/backend/out/artifacts/ktb_chat_backend_jar/ktb_chat_backend.jar"
+          JAR_PATH=$(ls apps/backend/target/*.jar | head -n 1)
           PROPS_PATH="apps/backend/src/main/resources/application.properties"
 
           if [ ! -f "$JAR_PATH" ]; then
-            echo "JAR not found at $JAR_PATH"
+            echo "JAR not found in apps/backend/target"
             exit 1
           fi
 
@@ -60,7 +69,10 @@ jobs:
         run: |
           for HOST in $SERVER_HOSTS; do
             echo "Copying artifacts to $HOST"
-            ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no "$SERVER_USER@$HOST" "mkdir -p /home/$SERVER_USER/backend/conf"
+            ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no "$SERVER_USER@$HOST" "
+              mkdir -p /home/$SERVER_USER/backend &&
+              mkdir -p /home/$SERVER_USER/backend/conf
+            "
             scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
               "${{ steps.paths.outputs.jar_path }}" \
               "$SERVER_USER@$HOST:/home/$SERVER_USER/backend/ktb_chat_backend.jar"
@@ -76,6 +88,9 @@ jobs:
 
             ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no "$SERVER_USER@$HOST" << EOF
               set -e
+
+              mkdir -p /home/$SERVER_USER/backend
+              mkdir -p /home/$SERVER_USER/backend/conf
               cd /home/$SERVER_USER/backend
 
               cat > .env << ENVEOF
