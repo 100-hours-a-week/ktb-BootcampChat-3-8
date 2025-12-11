@@ -93,17 +93,17 @@ jobs:
               mkdir -p /home/$SERVER_USER/backend/conf
               cd /home/$SERVER_USER/backend
 
-              cat > .env << ENVEOF
-ENCRYPTION_KEY=${ENCRYPTION_KEY}
-ENCRYPTION_SALT=${ENCRYPTION_SALT}
-JWT_SECRET=${JWT_SECRET}
-MONGO_URI=${MONGO_URI}
-REDIS_HOST=${REDIS_HOST}
-REDIS_PORT=${REDIS_PORT}
-REDIS_PASSWORD=${REDIS_PASSWORD}
-PORT=${PORT}
-WS_PORT=${WS_PORT}
-ENVEOF
+              cat > .env << 'ENVEOF'
+              ENCRYPTION_KEY=${ENCRYPTION_KEY}
+              ENCRYPTION_SALT=${ENCRYPTION_SALT}
+              JWT_SECRET=${JWT_SECRET}
+              MONGO_URI=${MONGO_URI}
+              REDIS_HOST=${REDIS_HOST}
+              REDIS_PORT=${REDIS_PORT}
+              REDIS_PASSWORD=${REDIS_PASSWORD}
+              PORT=${PORT}
+              WS_PORT=${WS_PORT}
+              ENVEOF
 
               set -a
               . .env
