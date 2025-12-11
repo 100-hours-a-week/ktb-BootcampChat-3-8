@@ -316,7 +316,7 @@ git checkout -b feature/jwt-denylist-phase3
 
 **작업:**
 
-- [ ] API 호출 시 `credentials: 'include'` 추가
+- [X] API 호출 시 `credentials: 'include'` 추가
   ```javascript
   // Axios 예시
   axios.defaults.withCredentials = true;
@@ -329,7 +329,7 @@ git checkout -b feature/jwt-denylist-phase3
   });
   ```
 
-- [ ] Authorization 헤더 제거 (Cookie로 자동 전송)
+- [X] Authorization 헤더 제거 (Cookie로 자동 전송)
   ```javascript
   // 기존 (제거)
   headers: {

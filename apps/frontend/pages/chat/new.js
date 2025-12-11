@@ -28,13 +28,13 @@ function NewChatRoom() {
 
   const joinRoom = async (roomId, password) => {
     try {
+      // HTTP Only Cookie가 자동으로 서버에 전송됨
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/rooms/${roomId}/join`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-auth-token': currentUser.token,
-          'x-session-id': currentUser.sessionId
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ password })
       });
 
@@ -63,7 +63,7 @@ function NewChatRoom() {
       return;
     }
 
-    if (!currentUser?.token) {
+    if (!currentUser) {
       setError('인증 정보가 없습니다. 다시 로그인해주세요.');
       return;
     }
@@ -72,13 +72,13 @@ function NewChatRoom() {
       setLoading(true);
       setError('');
 
+      // HTTP Only Cookie가 자동으로 서버에 전송됨
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/rooms`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-auth-token': currentUser.token,
-          'x-session-id': currentUser.sessionId
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
           name: formData.name.trim(),
           password: formData.hasPassword ? formData.password : undefined

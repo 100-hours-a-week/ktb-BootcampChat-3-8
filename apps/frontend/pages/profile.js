@@ -51,13 +51,11 @@ const Profile = () => {
     setLoading(true);
 
     try {
-      // 비밀번호 변경 처리
+      // 비밀번호 변경 처리 (HTTP Only Cookie가 자동으로 서버에 전송됨)
       if (formData.newPassword) {
         await authService.changePassword(
           '',
-          formData.newPassword,
-          user.token,
-          user.sessionId
+          formData.newPassword
         );
       }
 

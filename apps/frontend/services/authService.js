@@ -82,14 +82,8 @@ api.interceptors.request.use(
       }
     }
 
-    // 인증 토큰 설정
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (user?.token) {
-      config.headers['x-auth-token'] = user.token;
-      if (user.sessionId) {
-        config.headers['x-session-id'] = user.sessionId;
-      }
-    }
+    // HTTP Only Cookie를 사용하므로 토큰을 수동으로 헤더에 추가하지 않음
+    // withCredentials: true 설정으로 Cookie가 자동으로 전송됨
 
     return config;
   },
@@ -103,19 +97,20 @@ class AuthService {
   /**
    * 로그인 API 호출
    * 상태 관리는 AuthContext에서 처리
+   * 토큰은 HTTP Only Cookie로 전달되므로 응답에서 제외
    */
   async login(credentials) {
     try {
-      const response = await axios.post(`${API_URL}/api/auth/login`, credentials);
+      const response = await axios.post(`${API_URL}/api/auth/login`, credentials, {
+        withCredentials: true
+      });
 
-      if (response.data?.success && response.data?.token) {
+      if (response.data?.success) {
         const userData = {
           id: response.data.user._id,
           name: response.data.user.name,
           email: response.data.user.email,
-          profileImage: response.data.user.profileImage,
-          token: response.data.token,
-          sessionId: response.data.sessionId
+          profileImage: response.data.user.profileImage
         };
 
         return userData;
@@ -145,17 +140,11 @@ class AuthService {
   /**
    * 로그아웃 API 호출
    * 상태 관리와 리다이렉션은 AuthContext에서 처리
+   * 토큰은 HTTP Only Cookie로 전달됨
    */
-  async logout(token, sessionId) {
+  async logout() {
     try {
-      if (token) {
-        await api.post('/api/auth/logout', null, {
-          headers: {
-            'x-auth-token': token,
-            'x-session-id': sessionId
-          }
-        });
-      }
+      await api.post('/api/auth/logout');
     } catch (error) {
       // 로그아웃 API 실패해도 계속 진행 (best effort)
     }
@@ -182,24 +171,11 @@ class AuthService {
   /**
    * 프로필 업데이트 API 호출
    * 상태 업데이트는 AuthContext에서 처리
+   * 토큰은 HTTP Only Cookie로 전달됨
    */
-  async updateProfile(data, token, sessionId) {
+  async updateProfile(data) {
     try {
-      if (!token) {
-        throw new Error('인증 정보가 없습니다.');
-      }
-
-      const response = await axios.put(
-        `${API_URL}/api/users/profile`,
-        data,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-auth-token': token,
-            'x-session-id': sessionId
-          }
-        }
-      );
+      const response = await api.put('/api/users/profile', data);
 
       if (response.data?.success) {
         return response.data.user;
@@ -218,27 +194,14 @@ class AuthService {
 
   /**
    * 비밀번호 변경 API 호출
+   * 토큰은 HTTP Only Cookie로 전달됨
    */
-  async changePassword(currentPassword, newPassword, token, sessionId) {
+  async changePassword(currentPassword, newPassword) {
     try {
-      if (!token) {
-        throw new Error('인증 정보가 없습니다.');
-      }
-
-      const response = await axios.put(
-        `${API_URL}/api/users/profile`,
-        {
-          currentPassword,
-          newPassword
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-auth-token': token,
-            'x-session-id': sessionId
-          }
-        }
-      );
+      const response = await api.put('/api/users/profile', {
+        currentPassword,
+        newPassword
+      });
 
       if (response.data?.success) {
         return true;

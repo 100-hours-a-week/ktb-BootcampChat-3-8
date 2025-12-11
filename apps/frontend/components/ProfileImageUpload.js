@@ -49,7 +49,7 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
       setPreviewUrl(objectUrl);
 
       // 인증 정보 확인
-      if (!user?.token) {
+      if (!user) {
         throw new Error('인증 정보가 없습니다.');
       }
 
@@ -57,13 +57,10 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
       const formData = new FormData();
       formData.append('profileImage', file);
 
-      // 파일 업로드 요청
+      // 파일 업로드 요청 (HTTP Only Cookie가 자동으로 서버에 전송됨)
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/profile-image`, {
         method: 'POST',
-        headers: {
-          'x-auth-token': user?.token,
-          'x-session-id': user?.sessionId
-        },
+        credentials: 'include',
         body: formData
       });
 
@@ -112,16 +109,14 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
       setError('');
 
       // 인증 정보 확인
-      if (!user?.token) {
+      if (!user) {
         throw new Error('인증 정보가 없습니다.');
       }
 
+      // HTTP Only Cookie가 자동으로 서버에 전송됨
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/profile-image`, {
         method: 'DELETE',
-        headers: {
-          'x-auth-token': user?.token,
-          'x-session-id': user?.sessionId
-        }
+        credentials: 'include'
       });
 
       if (!response.ok) {
