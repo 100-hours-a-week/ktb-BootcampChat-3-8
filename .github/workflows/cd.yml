@@ -98,9 +98,9 @@ jobs:
           ENCRYPTION_SALT=${ENCRYPTION_SALT}
           JWT_SECRET=${JWT_SECRET}
           MONGO_URI=${MONGO_URI}
-          REDIS_HOST=${REDIS_HOST}
-          REDIS_PORT=${REDIS_PORT}
-          REDIS_PASSWORD=${REDIS_PASSWORD}
+          REDIS_MODE=cluster
+          REDIS_CLUSTER_NODES=10.0.101.247:6379,10.0.101.30:6379,10.0.101.150:6379
+          REDIS_TIMEOUT=3000
           PORT=${PORT}
           WS_PORT=${WS_PORT}
           ENVEOF
