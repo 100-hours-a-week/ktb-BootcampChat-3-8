@@ -255,6 +255,9 @@ public class RoomService {
             room.setPassword(passwordEncoder.encode(createRoomRequest.getPassword()));
         }
 
+        // 생성자를 참가자로 추가
+        room.addParticipant(creator.getId());
+
         Room savedRoom = roomRepository.save(room);
         
         // Publish event for room created
@@ -307,7 +310,7 @@ public class RoomService {
         return room;
     }
 
-    private RoomResponse mapToRoomResponse(Room room, String name) {
+    private RoomResponse mapToRoomResponse(Room room, String email) {
         if (room == null) return null;
 
         User creator = null;
@@ -324,6 +327,11 @@ public class RoomService {
         // 최근 10분간 메시지 수 조회
         LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
         long recentMessageCount = messageRepository.countRecentMessagesByRoomId(room.getId(), tenMinutesAgo);
+
+        // 현재 사용자 조회 (email 기반)
+        User currentUser = userRepository.findByEmail(email).orElse(null);
+        boolean isCreator = creator != null && currentUser != null
+            && creator.getId().equals(currentUser.getId());
 
         return RoomResponse.builder()
             .id(room.getId())
@@ -343,7 +351,7 @@ public class RoomService {
                     .build())
                 .collect(Collectors.toList()))
             .createdAtDateTime(room.getCreatedAt())
-            .isCreator(creator != null && creator.getId().equals(name))
+            .isCreator(isCreator)
             .recentMessageCount((int) recentMessageCount)
             .build();
     }
