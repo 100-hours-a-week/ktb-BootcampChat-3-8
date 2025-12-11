@@ -77,17 +77,8 @@ axiosInstance.interceptors.request.use(
       config.data = {};
     }
 
-    // localStorage에서 직접 사용자 정보 읽기
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      const user = JSON.parse(userStr);
-      if (user?.token) {
-        config.headers['x-auth-token'] = user.token;
-        if (user.sessionId) {
-          config.headers['x-session-id'] = user.sessionId;
-        }
-      }
-    }
+    // HTTP Only Cookie를 사용하므로 토큰을 수동으로 헤더에 추가하지 않음
+    // withCredentials: true 설정으로 Cookie가 자동으로 전송됨
 
     return config;
   },

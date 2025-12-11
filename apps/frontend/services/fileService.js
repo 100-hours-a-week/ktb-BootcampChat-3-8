@@ -74,7 +74,7 @@ class FileService {
     return { success: true };
   }
 
-  async uploadFile(file, onProgress, token, sessionId) {
+  async uploadFile(file, onProgress) {
     const validationResult = await this.validateFile(file);
     if (!validationResult.success) {
       return validationResult;
@@ -91,8 +91,7 @@ class FileService {
         `${this.baseUrl}/api/files/upload` :
         '/api/files/upload';
 
-      // token과 sessionId는 axios 인터셉터에서 자동으로 추가되므로
-      // 여기서는 명시적으로 전달하지 않아도 됩니다
+      // HTTP Only Cookie가 자동으로 서버에 전송됨
       const response = await axiosInstance.post(uploadUrl, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
@@ -147,11 +146,11 @@ class FileService {
       return this.handleUploadError(error);
     }
   }
-  async downloadFile(filename, originalname, token, sessionId) {
+  async downloadFile(filename, originalname) {
     try {
       // 파일 존재 여부 먼저 확인
       const downloadUrl = this.getFileUrl(filename, false);
-      // axios 인터셉터가 자동으로 인증 헤더를 추가합니다
+      // HTTP Only Cookie가 자동으로 서버에 전송됨
       const checkResponse = await axiosInstance.head(downloadUrl, {
         validateStatus: status => status < 500,
         withCredentials: true
@@ -178,7 +177,7 @@ class FileService {
         };
       }
 
-      // axios 인터셉터가 자동으로 인증 헤더를 추가합니다
+      // HTTP Only Cookie가 자동으로 서버에 전송됨
       const response = await axiosInstance({
         method: 'GET',
         url: downloadUrl,
@@ -238,21 +237,12 @@ class FileService {
     return `${baseUrl}/api/files/${endpoint}/${filename}`;
   }
 
-  getPreviewUrl(file, token, sessionId, withAuth = true) {
+  getPreviewUrl(file) {
     if (!file?.filename) return '';
 
-    const baseUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/files/view/${file.filename}`;
-
-    if (!withAuth) return baseUrl;
-
-    if (!token || !sessionId) return baseUrl;
-
-    // URL 객체 생성 전 프로토콜 확인
-    const url = new URL(baseUrl);
-    url.searchParams.append('token', encodeURIComponent(token));
-    url.searchParams.append('sessionId', encodeURIComponent(sessionId));
-
-    return url.toString();
+    // HTTP Only Cookie를 사용하므로 URL에 토큰을 추가하지 않음
+    // withCredentials로 Cookie가 자동 전송됨
+    return `${process.env.NEXT_PUBLIC_API_URL}/api/files/view/${file.filename}`;
   }
 
   getFileType(filename) {
@@ -277,19 +267,6 @@ class FileService {
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return `${parseFloat((bytes / Math.pow(1024, i)).toFixed(2))} ${units[i]}`;
-  }
-
-  getHeaders(token, sessionId) {
-    if (!token || !sessionId) {
-      return {
-        'Accept': 'application/json, */*'
-      };
-    }
-    return {
-      'x-auth-token': token,
-      'x-session-id': sessionId,
-      'Accept': 'application/json, */*'
-    };
   }
 
   handleUploadError(error) {
