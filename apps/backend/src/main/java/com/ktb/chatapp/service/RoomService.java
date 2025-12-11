@@ -310,16 +310,17 @@ public class RoomService {
     private RoomResponse mapToRoomResponse(Room room, String name) {
         if (room == null) return null;
 
-        User creator = null;
+        var userIdsToLoad = new HashSet<String>();
         if (room.getCreator() != null) {
-            creator = userRepository.findById(room.getCreator()).orElse(null);
+            userIdsToLoad.add(room.getCreator());
         }
+        userIdsToLoad.addAll(room.getParticipantIds());
 
-        List<User> participants = room.getParticipantIds().stream()
-            .map(userRepository::findById)
-            .filter(Optional::isPresent)
-            .map(Optional::get)
-            .toList();
+        Map<String, User> userMap = userRepository.findAllById(userIdsToLoad).stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+
+        User creator = room.getCreator() != null ? userMap.get(room.getCreator()) : null;
 
         // 최근 10분간 메시지 수 조회
         LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
@@ -334,8 +335,10 @@ public class RoomService {
                 .name(creator.getName() != null ? creator.getName() : "알 수 없음")
                 .email(creator.getEmail() != null ? creator.getEmail() : "")
                 .build() : null)
-            .participants(participants.stream()
-                .filter(p -> p != null && p.getId() != null)
+            .participants(room.getParticipantIds().stream()
+                .map(userMap::get)
+                .filter(Objects::nonNull)
+                .filter(p -> p.getId() != null)
                 .map(p -> UserResponse.builder()
                     .id(p.getId())
                     .name(p.getName() != null ? p.getName() : "알 수 없음")
