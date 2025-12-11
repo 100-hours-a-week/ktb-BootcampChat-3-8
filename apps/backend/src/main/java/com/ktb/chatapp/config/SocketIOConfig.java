@@ -9,6 +9,7 @@ import com.corundumstudio.socketio.annotation.SpringAnnotationScanner;
 import com.corundumstudio.socketio.namespace.Namespace;
 import com.corundumstudio.socketio.protocol.JacksonJsonSupport;
 import com.corundumstudio.socketio.store.MemoryStoreFactory;
+import com.corundumstudio.socketio.store.RedissonStoreFactory;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ktb.chatapp.websocket.socketio.ChatDataStore;
 import com.ktb.chatapp.websocket.socketio.LocalChatDataStore;
@@ -32,6 +33,9 @@ public class SocketIOConfig {
     @Value("${socketio.server.port:5002}")
     private Integer port;
 
+    @Value("${socketio.store.type:memory}") // memory | redis
+    private String storeType;
+
     @Bean(initMethod = "start", destroyMethod = "stop")
     public SocketIOServer socketIOServer(AuthTokenListener authTokenListener) {
         com.corundumstudio.socketio.Configuration config = new com.corundumstudio.socketio.Configuration();
@@ -40,10 +44,10 @@ public class SocketIOConfig {
         
         var socketConfig = new SocketConfig();
         socketConfig.setReuseAddress(true);
-        socketConfig.setTcpNoDelay(false);
-        socketConfig.setAcceptBackLog(10);
-        socketConfig.setTcpSendBufferSize(4096);
-        socketConfig.setTcpReceiveBufferSize(4096);
+        socketConfig.setTcpNoDelay(true);
+        socketConfig.setAcceptBackLog(512); // 시작값은 512로 하고, 부하 테스트를 통해 점진적으로 값을 조정 필요
+        socketConfig.setTcpSendBufferSize(8 * 1024); // 시작값 8KB로 설정, 테스트를 통해 재설정 필요
+        socketConfig.setTcpReceiveBufferSize(8 * 1024);
         config.setSocketConfig(socketConfig);
 
         config.setOrigin("*");
@@ -54,7 +58,15 @@ public class SocketIOConfig {
         config.setUpgradeTimeout(10000);
 
         config.setJsonSupport(new JacksonJsonSupport(new JavaTimeModule()));
-        config.setStoreFactory(new MemoryStoreFactory()); // 단일노드 전용
+        /**
+         * 수평 확장(Redis 기반) 가능하게 설계 변경
+         */
+        if ("redis".equalsIgnoreCase(storeType)) {
+            // TODO: Redis 설정에서 호스트/포트/비밀번호 뽑아서 RedissonStoreFactory 생성
+            config.setStoreFactory(new RedissonStoreFactory());
+        } else {
+            config.setStoreFactory(new MemoryStoreFactory());
+        }
 
         log.info("Socket.IO server configured on {}:{} with {} boss threads and {} worker threads",
                  host, port, config.getBossThreads(), config.getWorkerThreads());

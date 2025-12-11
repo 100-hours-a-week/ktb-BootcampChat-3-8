@@ -161,7 +161,7 @@ export const useRoomHandling = (
     }
   }, [userRooms, cleanup, router]);
 
-  const fetchRoomData = useCallback(async (roomId) => {
+  const fetchRoomData = useCallback(async (roomId, attemptedJoin = false) => {
     try {
       if (!user?.token || !user?.sessionId) {
         await handleSessionError();
@@ -190,10 +190,36 @@ export const useRoomHandling = (
         if (response.status === 401) {
           const refreshed = await handleSessionError();
           if (refreshed && mountedRef.current) {
-            return fetchRoomData(roomId);
+            return fetchRoomData(roomId, attemptedJoin);
           }
           throw new Error('인증이 만료되었습니다.');
         }
+
+        // 아직 채팅방에 참여하지 않은 경우 자동으로 참여 시도 후 재시도
+        if (response.status === 403 && !attemptedJoin) {
+          const joinResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/rooms/${roomId}/join`,
+            {
+              method: 'POST',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'x-auth-token': user.token,
+                'x-session-id': user.sessionId
+              },
+              credentials: 'include',
+              body: JSON.stringify({})
+            }
+          );
+
+          if (joinResponse.ok) {
+            return fetchRoomData(roomId, true);
+          }
+
+          const joinError = await joinResponse.json().catch(() => ({}));
+          throw new Error(joinError?.message || '채팅방 입장에 실패했습니다.');
+        }
+
         throw new Error('채팅방 정보를 불러오는데 실패했습니다.');
       }
 
