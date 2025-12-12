@@ -4,6 +4,7 @@ import com.ktb.chatapp.model.Message;
 import com.ktb.chatapp.repository.MessageRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +37,7 @@ public class MessageReadStatusService {
                 .build();
         
         try {
+            List<Message> messages = new LinkedList<>();
             List<Message> messagesToUpdate = messageRepository.findAllById(messageIds);
             for (Message message : messagesToUpdate) {
                 if (message.getReaders() == null) {
@@ -46,9 +48,11 @@ public class MessageReadStatusService {
                 if (!alreadyRead) {
                     message.getReaders().add(readerInfo);
                 }
-                messageRepository.save(message);
+                messages.add(message);
             }
-            
+
+            messageRepository.saveAll(messages);
+
             log.debug("Read status updated for {} messages by user {}",
                     messagesToUpdate.size(), userId);
 
