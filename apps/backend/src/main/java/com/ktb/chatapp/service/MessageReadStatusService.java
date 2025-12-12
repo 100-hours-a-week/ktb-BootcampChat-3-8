@@ -37,8 +37,8 @@ public class MessageReadStatusService {
                 .build();
         
         try {
-            List<Message> messages = new LinkedList<>();
             List<Message> messagesToUpdate = messageRepository.findAllById(messageIds);
+
             for (Message message : messagesToUpdate) {
                 if (message.getReaders() == null) {
                     message.setReaders(new ArrayList<>());
@@ -48,12 +48,17 @@ public class MessageReadStatusService {
                 if (!alreadyRead) {
                     message.getReaders().add(readerInfo);
                 }
-                messages.add(message);
             }
 
-            messageRepository.saveAll(messages);
+            long updatedCnt = messageRepository.bulkUpdate(messagesToUpdate);
 
-            log.debug("Read status updated for {} messages by user {}",
+            int originCnt = messagesToUpdate.size();
+
+            if (updatedCnt != originCnt) {
+                log.warn("Read status updatedCnt failed, total message: {}, updatedCnt message: {}", originCnt, updatedCnt);
+            }
+
+            log.debug("Read status updatedCnt for {} messages by user {}",
                     messagesToUpdate.size(), userId);
 
         } catch (Exception e) {
