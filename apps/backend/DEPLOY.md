@@ -100,10 +100,35 @@ tail -f logs/app.log
    ENCRYPTION_KEY=your_encryption_key_64_hex_chars
    ENCRYPTION_SALT=your_encryption_salt_32_hex_chars
 
-   # 데이터베이스
-   MONGO_URI=mongodb://localhost:27017/bootcamp-chat
+   # MongoDB (standalone 예시)
+   MONGO_MODE=standalone
+   MONGO_HOST=localhost
+   MONGO_PORT=27017
+   MONGO_DATABASE=bootcamp-chat
+   MONGO_USERNAME=
+   MONGO_PASSWORD=
+   MONGO_AUTH_DB=admin
+
+   # ReplicaSet 사용 시 (예시)
+   # MONGO_MODE=replica
+   # MONGO_REPLICA_SET_NAME=rs0
+   # MONGO_REPLICA_HOSTS=mongo-primary:27017,mongo-secondary1:27017,mongo-secondary2:27017
+   # MONGO_REPLICA_OPTIONS=readPreference=primaryPreferred&w=majority&retryWrites=true
+
+   # 필요 시 직접 URI 지정 (설정 시 위 값보다 우선)
+   # MONGO_URI=mongodb://user:pass@mongo-primary:27017/bootcamp-chat?replicaSet=rs0
+
+   # Redis (standalone 기본)
+   REDIS_MODE=standalone
    REDIS_HOST=localhost
    REDIS_PORT=6379
+   REDIS_PASSWORD=
+   REDIS_TIMEOUT=3000
+
+   # Redis Cluster 사용 시 (예시)
+   # REDIS_MODE=cluster
+   # REDIS_CLUSTER_NODES=redis-node1:6379,redis-node2:6379,redis-node3:6379
+   # REDIS_PASSWORD=your-secure-password
 
    # 서버 포트
    PORT=5001
