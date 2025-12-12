@@ -80,49 +80,53 @@ class FileService {
       return validationResult;
     }
 
+    const source = CancelToken.source();
+    this.activeUploads.set(file.name, source);
+
     try {
+      const baseUrl = this.baseUrl || '';
+
+      // E2E 테스트 호환성을 위해 /api/files/upload 엔드포인트 사용
+      // 백엔드는 내부적으로 Presigned URL 방식으로 S3에 저장함
       const formData = new FormData();
       formData.append('file', file);
 
-      const source = CancelToken.source();
-      this.activeUploads.set(file.name, source);
-
-      const uploadUrl = this.baseUrl ?
-        `${this.baseUrl}/api/files/upload` :
-        '/api/files/upload';
-
-      // token과 sessionId는 axios 인터셉터에서 자동으로 추가되므로
-      // 여기서는 명시적으로 전달하지 않아도 됩니다
-      const response = await axiosInstance.post(uploadUrl, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        cancelToken: source.token,
-        withCredentials: true,
-        onUploadProgress: (progressEvent) => {
-          if (onProgress) {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            onProgress(percentCompleted);
-          }
+      const uploadProgress = (progressEvent) => {
+        if (onProgress) {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          onProgress(percentCompleted);
         }
-      });
+      };
+
+      const uploadResponse = await axiosInstance.post(
+        `${baseUrl}/api/files/upload`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          },
+          onUploadProgress: uploadProgress,
+          cancelToken: source.token,
+          withCredentials: true
+        }
+      );
 
       this.activeUploads.delete(file.name);
 
-      if (!response.data || !response.data.success) {
+      if (!uploadResponse.data || !uploadResponse.data.success) {
         return {
           success: false,
-          message: response.data?.message || '파일 업로드에 실패했습니다.'
+          message: uploadResponse.data?.message || '파일 업로드에 실패했습니다.'
         };
       }
 
-      const fileData = response.data.file;
+      const fileData = uploadResponse.data.file;
       return {
         success: true,
         data: {
-          ...response.data,
+          ...uploadResponse.data,
           file: {
             ...fileData,
             url: this.getFileUrl(fileData.filename, true)

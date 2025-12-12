@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "cd apps/frontend && npm run dev",
-    "dev:backend": "cd apps/backend && make dev"
+    "dev:backend": "cd apps/backend && make dev",
+    "test": "cd e2e && npm test",
+    "test:e2e": "cd e2e && npm test"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
