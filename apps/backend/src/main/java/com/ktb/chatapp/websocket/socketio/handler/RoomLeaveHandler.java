@@ -120,14 +120,11 @@ public class RoomLeaveHandler {
             return;
         }
         
-        var participantList = roomOpt.get()
-                .getParticipantIds()
-                .stream()
-                .map(userRepository::findById)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .map(UserResponse::from)
-                .toList();
+        var participantList =
+                userRepository.findAllByIdIn(roomOpt.get().getParticipantIds())
+                        .stream()
+                        .map(UserResponse::from)
+                        .toList();
         
         if (participantList.isEmpty()) {
             return;
