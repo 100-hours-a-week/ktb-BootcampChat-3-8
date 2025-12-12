@@ -46,8 +46,7 @@ class SocketService {
           reconnectionDelay: this.retryDelay,
           reconnectionDelayMax: 5000,
           timeout: 20000,
-          forceNew: true,
-          withCredentials: true  // HTTP Only Cookie 전송을 위해 필요
+          forceNew: true
         });
 
         this.setupEventHandlers(resolve, reject);

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState, forwardRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useState, forwardRef } from 'react';
 import {
   LikeIcon,
   AttachFileOutlineIcon,
@@ -9,7 +9,6 @@ import EmojiPicker from './EmojiPicker';
 import MentionDropdown from './MentionDropdown';
 import FilePreview from './FilePreview';
 import fileService from '@/services/fileService';
-import { debounce } from '@/utils/performanceUtils';
 
 const ChatInput = forwardRef(({
   message = '',
@@ -49,7 +48,7 @@ const ChatInput = forwardRef(({
 
     try {
       await fileService.validateFile(file);
-      
+
       const filePreview = {
         file,
         url: URL.createObjectURL(file),
@@ -57,11 +56,11 @@ const ChatInput = forwardRef(({
         type: file.type,
         size: file.size
       };
-      
+
       setFiles(prev => [...prev, filePreview]);
       setUploadError(null);
       onFileSelect?.(file);
-      
+
     } catch (error) {
       console.error('File validation error:', error);
       setUploadError(error.message);
@@ -144,9 +143,9 @@ const ChatInput = forwardRef(({
       if (!items) return;
 
       const fileItem = Array.from(items).find(
-        item => item.kind === 'file' && 
-        (item.type.startsWith('image/') || 
-         item.type.startsWith('video/') || 
+        item => item.kind === 'file' &&
+        (item.type.startsWith('image/') ||
+         item.type.startsWith('video/') ||
          item.type.startsWith('audio/') ||
          item.type === 'application/pdf')
       );
@@ -171,13 +170,8 @@ const ChatInput = forwardRef(({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('paste', handlePaste);
       files.forEach(file => URL.revokeObjectURL(file.url));
-
-      // Cancel pending debounced position calculations
-      if (debouncedCalculatePosition?.cancel) {
-        debouncedCalculatePosition.cancel();
-      }
     };
-  }, [showEmojiPicker, setShowEmojiPicker, files, messageInputRef, handleFileValidationAndPreview, debouncedCalculatePosition]);
+  }, [showEmojiPicker, setShowEmojiPicker, files, messageInputRef, handleFileValidationAndPreview]);
 
   const calculateMentionPosition = useCallback((textarea, atIndex) => {
     // Get all text before @ symbol
@@ -244,15 +238,6 @@ const ChatInput = forwardRef(({
     return { top, left };
   }, []);
 
-  // Debounced version of position calculation to improve performance during fast typing
-  const debouncedCalculatePosition = useMemo(
-    () => debounce((target, atIndex) => {
-      const position = calculateMentionPosition(target, atIndex);
-      setMentionPosition(position);
-    }, 150),
-    [calculateMentionPosition]
-  );
-
   const handleInputChange = useCallback((e) => {
     const value = e.target.value;
     const cursorPosition = e.target.selectionStart;
@@ -270,14 +255,15 @@ const ChatInput = forwardRef(({
         setShowMentionList(true);
         setMentionIndex(0);
 
-        // Use debounced position calculation to improve performance during fast typing
-        debouncedCalculatePosition(e.target, lastAtSymbol);
+        // Calculate and set mention dropdown position
+        const position = calculateMentionPosition(e.target, lastAtSymbol);
+        setMentionPosition(position);
         return;
       }
     }
 
     setShowMentionList(false);
-  }, [onMessageChange, setMentionFilter, setShowMentionList, setMentionIndex, debouncedCalculatePosition]);
+  }, [onMessageChange, setMentionFilter, setShowMentionList, setMentionIndex, calculateMentionPosition]);
 
   const handleMentionSelect = useCallback((user) => {
     if (!messageInputRef?.current) return;

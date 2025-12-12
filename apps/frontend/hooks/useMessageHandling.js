@@ -1,7 +1,6 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Toast } from '../components/Toast';
 import fileService from '../services/fileService';
-import { debounce } from '../utils/performanceUtils';
 
 export const useMessageHandling = (socketRef, currentUser, router, handleSessionError, messages = [], loadingMessages = false, setLoadingMessages) => {
  const [message, setMessage] = useState('');
@@ -14,36 +13,26 @@ export const useMessageHandling = (socketRef, currentUser, router, handleSession
  const [uploadProgress, setUploadProgress] = useState(0);
  const [uploadError, setUploadError] = useState(null);
 
- // Debounced mention filtering to improve performance during fast typing
- const debouncedMentionFilter = useMemo(
-   () => debounce((textBeforeCursor) => {
-     const atSymbolIndex = textBeforeCursor.lastIndexOf('@');
-
-     if (atSymbolIndex !== -1) {
-       const mentionText = textBeforeCursor.slice(atSymbolIndex + 1);
-       if (!mentionText.includes(' ')) {
-         setMentionFilter(mentionText.toLowerCase());
-         setShowMentionList(true);
-         setMentionIndex(0);
-         return;
-       }
-     }
-
-     setShowMentionList(false);
-   }, 100),
-   [setMentionFilter, setShowMentionList, setMentionIndex]
- );
-
  const handleMessageChange = useCallback((e) => {
    const newValue = e.target.value;
    setMessage(newValue);
 
    const cursorPosition = e.target.selectionStart;
    const textBeforeCursor = newValue.slice(0, cursorPosition);
+   const atSymbolIndex = textBeforeCursor.lastIndexOf('@');
 
-   // Apply debounced mention filtering
-   debouncedMentionFilter(textBeforeCursor);
- }, [debouncedMentionFilter]);
+   if (atSymbolIndex !== -1) {
+     const mentionText = textBeforeCursor.slice(atSymbolIndex + 1);
+     if (!mentionText.includes(' ')) {
+       setMentionFilter(mentionText.toLowerCase());
+       setShowMentionList(true);
+       setMentionIndex(0);
+       return;
+     }
+   }
+
+   setShowMentionList(false);
+ }, []);
 
   const handleLoadMore = useCallback(() => {
     if (!socketRef.current?.connected) {
@@ -136,8 +125,8 @@ export const useMessageHandling = (socketRef, currentUser, router, handleSession
      setShowMentionList(false);
 
    } catch (error) {
-     if (error.message?.includes('세션') || 
-         error.message?.includes('인증') || 
+     if (error.message?.includes('세션') ||
+         error.message?.includes('인증') ||
          error.message?.includes('토큰')) {
        await handleSessionError();
        return;
@@ -158,7 +147,7 @@ export const useMessageHandling = (socketRef, currentUser, router, handleSession
  const getFilteredParticipants = useCallback((room) => {
    if (!room?.participants) return [];
 
-   return room.participants.filter(user => 
+   return room.participants.filter(user =>
      user.name.toLowerCase().includes(mentionFilter) ||
      user.email.toLowerCase().includes(mentionFilter)
    );
@@ -173,7 +162,7 @@ export const useMessageHandling = (socketRef, currentUser, router, handleSession
 
    if (atSymbolIndex !== -1) {
      const textBeforeAt = message.slice(0, atSymbolIndex);
-     const newMessage = 
+     const newMessage =
        textBeforeAt +
        `@${user.name} ` +
        message.slice(cursorPosition);
@@ -194,15 +183,6 @@ export const useMessageHandling = (socketRef, currentUser, router, handleSession
    setUploadError(null);
    setUploadProgress(0);
  }, []);
-
- // Cleanup debounced function on unmount
- useEffect(() => {
-   return () => {
-     if (debouncedMentionFilter?.cancel) {
-       debouncedMentionFilter.cancel();
-     }
-   };
- }, [debouncedMentionFilter]);
 
  return {
    message,

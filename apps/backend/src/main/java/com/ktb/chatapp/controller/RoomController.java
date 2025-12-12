@@ -57,10 +57,10 @@ public class RoomController {
     // Health Check 엔드포인트
     @Operation(summary = "채팅방 서비스 헬스체크", description = "채팅방 서비스의 상태를 확인합니다.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "서비스 정상",
-            content = @Content(schema = @Schema(implementation = HealthResponse.class))),
-        @ApiResponse(responseCode = "503", description = "서비스 사용 불가",
-            content = @Content(schema = @Schema(implementation = HealthResponse.class)))
+            @ApiResponse(responseCode = "200", description = "서비스 정상",
+                    content = @Content(schema = @Schema(implementation = HealthResponse.class))),
+            @ApiResponse(responseCode = "503", description = "서비스 사용 불가",
+                    content = @Content(schema = @Schema(implementation = HealthResponse.class)))
     })
     @SecurityRequirement(name = "")
     @GetMapping("/health")
@@ -70,38 +70,38 @@ public class RoomController {
 
             // 캐시 비활성화 헤더 설정
             return ResponseEntity
-                .status(healthResponse.isSuccess() ? 200 : 503)
-                .cacheControl(CacheControl.noCache().mustRevalidate())
-                .header("Pragma", "no-cache")
-                .header("Expires", "0")
-                .body(healthResponse);
+                    .status(healthResponse.isSuccess() ? 200 : 503)
+                    .cacheControl(CacheControl.noCache().mustRevalidate())
+                    .header("Pragma", "no-cache")
+                    .header("Expires", "0")
+                    .body(healthResponse);
 
         } catch (Exception e) {
             log.error("Health check 에러", e);
 
             HealthResponse errorResponse = HealthResponse.builder()
-                .success(false)
-                .build();
+                    .success(false)
+                    .build();
 
             return ResponseEntity
-                .status(503)
-                .cacheControl(CacheControl.noCache())
-                .body(errorResponse);
+                    .status(503)
+                    .cacheControl(CacheControl.noCache())
+                    .body(errorResponse);
         }
     }
 
     // 페이지네이션이 적용된 채팅방 목록 조회
     @Operation(summary = "채팅방 목록 조회", description = "페이지네이션과 검색 기능이 적용된 채팅방 목록을 조회합니다. Rate Limit이 적용됩니다.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "채팅방 목록 조회 성공",
-            content = @Content(schema = @Schema(implementation = RoomsResponse.class))),
-        @ApiResponse(responseCode = "401", description = "인증 실패",
-            content = @Content(schema = @Schema(implementation = StandardResponse.class))),
-        @ApiResponse(responseCode = "429", description = "요청 한도 초과",
-            content = @Content(schema = @Schema(implementation = StandardResponse.class),
-                examples = @ExampleObject(value = "{\"success\":false,\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"요청 한도를 초과했습니다.\"}"))),
-        @ApiResponse(responseCode = "500", description = "서버 내부 오류",
-            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+            @ApiResponse(responseCode = "200", description = "채팅방 목록 조회 성공",
+                    content = @Content(schema = @Schema(implementation = RoomsResponse.class))),
+            @ApiResponse(responseCode = "401", description = "인증 실패",
+                    content = @Content(schema = @Schema(implementation = StandardResponse.class))),
+            @ApiResponse(responseCode = "429", description = "요청 한도 초과",
+                    content = @Content(schema = @Schema(implementation = StandardResponse.class),
+                            examples = @ExampleObject(value = "{\"success\":false,\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"요청 한도를 초과했습니다.\"}"))),
+            @ApiResponse(responseCode = "500", description = "서버 내부 오류",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping
     @RateLimit
@@ -127,9 +127,9 @@ public class RoomController {
 
             // 캐시 설정
             return ResponseEntity.ok()
-                .cacheControl(CacheControl.maxAge(Duration.ofSeconds(10)))
-                .header("Last-Modified", java.time.Instant.now().toString())
-                .body(response);
+                    .cacheControl(CacheControl.maxAge(Duration.ofSeconds(10)))
+                    .header("Last-Modified", java.time.Instant.now().toString())
+                    .body(response);
 
         } catch (Exception e) {
             log.error("방 목록 조회 에러", e);
@@ -139,14 +139,14 @@ public class RoomController {
             if ("development".equals(activeProfile)) {
                 // 개발 환경에서는 상세 에러 정보 제공
                 errorResponse = ErrorResponse.builder()
-                    .success(false)
-                    .message("채팅방 목록을 불러오는데 실패했습니다.")
-                    .error(Map.of(
-                        "code", "ROOMS_FETCH_ERROR",
-                        "details", e.getMessage(),
-                        "stack", e.getStackTrace()
-                    ))
-                    .build();
+                        .success(false)
+                        .message("채팅방 목록을 불러오는데 실패했습니다.")
+                        .error(Map.of(
+                                "code", "ROOMS_FETCH_ERROR",
+                                "details", e.getMessage(),
+                                "stack", e.getStackTrace()
+                        ))
+                        .build();
             }
 
             return ResponseEntity.status(500).body(errorResponse);
@@ -155,22 +155,22 @@ public class RoomController {
 
     @Operation(summary = "채팅방 생성", description = "새로운 채팅방을 생성합니다. 비밀번호를 설정하여 비공개 방을 만들 수 있습니다.")
     @ApiResponses({
-        @ApiResponse(responseCode = "201", description = "채팅방 생성 성공",
-            content = @Content(schema = @Schema(implementation = RoomResponse.class))),
-        @ApiResponse(responseCode = "400", description = "유효하지 않은 입력값",
-            content = @Content(schema = @Schema(implementation = StandardResponse.class),
-                examples = @ExampleObject(value = "{\"success\":false,\"message\":\"방 이름은 필수입니다.\"}"))),
-        @ApiResponse(responseCode = "401", description = "인증 실패",
-            content = @Content(schema = @Schema(implementation = StandardResponse.class))),
-        @ApiResponse(responseCode = "500", description = "서버 내부 오류",
-            content = @Content(schema = @Schema(implementation = StandardResponse.class)))
+            @ApiResponse(responseCode = "201", description = "채팅방 생성 성공",
+                    content = @Content(schema = @Schema(implementation = RoomResponse.class))),
+            @ApiResponse(responseCode = "400", description = "유효하지 않은 입력값",
+                    content = @Content(schema = @Schema(implementation = StandardResponse.class),
+                            examples = @ExampleObject(value = "{\"success\":false,\"message\":\"방 이름은 필수입니다.\"}"))),
+            @ApiResponse(responseCode = "401", description = "인증 실패",
+                    content = @Content(schema = @Schema(implementation = StandardResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 내부 오류",
+                    content = @Content(schema = @Schema(implementation = StandardResponse.class)))
     })
     @PostMapping
     public ResponseEntity<?> createRoom(@Valid @RequestBody CreateRoomRequest createRoomRequest, Principal principal) {
         try {
             if (createRoomRequest.getName() == null || createRoomRequest.getName().trim().isEmpty()) {
                 return ResponseEntity.status(400).body(
-                    StandardResponse.error("방 이름은 필수입니다.")
+                        StandardResponse.error("방 이름은 필수입니다.")
                 );
             }
 
@@ -178,10 +178,10 @@ public class RoomController {
             RoomResponse roomResponse = mapToRoomResponse(savedRoom, principal.getName());
 
             return ResponseEntity.status(201).body(
-                Map.of(
-                    "success", true,
-                    "data", roomResponse
-                )
+                    Map.of(
+                            "success", true,
+                            "data", roomResponse
+                    )
             );
 
         } catch (Exception e) {
@@ -193,22 +193,22 @@ public class RoomController {
             }
 
             return ResponseEntity.status(500).body(
-                StandardResponse.error(errorMessage)
+                    StandardResponse.error(errorMessage)
             );
         }
     }
 
     @Operation(summary = "채팅방 상세 조회", description = "채팅방 ID로 특정 채팅방의 상세 정보를 조회합니다.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "채팅방 조회 성공",
-            content = @Content(schema = @Schema(implementation = RoomResponse.class))),
-        @ApiResponse(responseCode = "401", description = "인증 실패",
-            content = @Content(schema = @Schema(implementation = StandardResponse.class))),
-        @ApiResponse(responseCode = "404", description = "채팅방을 찾을 수 없음",
-            content = @Content(schema = @Schema(implementation = StandardResponse.class),
-                examples = @ExampleObject(value = "{\"success\":false,\"message\":\"채팅방을 찾을 수 없습니다.\"}"))),
-        @ApiResponse(responseCode = "500", description = "서버 내부 오류",
-            content = @Content(schema = @Schema(implementation = StandardResponse.class)))
+            @ApiResponse(responseCode = "200", description = "채팅방 조회 성공",
+                    content = @Content(schema = @Schema(implementation = RoomResponse.class))),
+            @ApiResponse(responseCode = "401", description = "인증 실패",
+                    content = @Content(schema = @Schema(implementation = StandardResponse.class))),
+            @ApiResponse(responseCode = "404", description = "채팅방을 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = StandardResponse.class),
+                            examples = @ExampleObject(value = "{\"success\":false,\"message\":\"채팅방을 찾을 수 없습니다.\"}"))),
+            @ApiResponse(responseCode = "500", description = "서버 내부 오류",
+                    content = @Content(schema = @Schema(implementation = StandardResponse.class)))
     })
     @GetMapping("/{roomId}")
     public ResponseEntity<?> getRoomById(@Parameter(description = "채팅방 ID", example = "60d5ec49f1b2c8b9e8c4f2a1") @PathVariable String roomId, Principal principal) {
@@ -216,7 +216,7 @@ public class RoomController {
             Optional<Room> roomOpt = roomService.findRoomById(roomId);
             if (roomOpt.isEmpty()) {
                 return ResponseEntity.status(404).body(
-                    StandardResponse.error("채팅방을 찾을 수 없습니다.")
+                        StandardResponse.error("채팅방을 찾을 수 없습니다.")
                 );
             }
 
@@ -224,33 +224,33 @@ public class RoomController {
             RoomResponse roomResponse = mapToRoomResponse(room, principal.getName());
 
             return ResponseEntity.ok(
-                Map.of(
-                    "success", true,
-                    "data", roomResponse
-                )
+                    Map.of(
+                            "success", true,
+                            "data", roomResponse
+                    )
             );
 
         } catch (Exception e) {
             log.error("채팅방 조회 에러", e);
             return ResponseEntity.status(500).body(
-                StandardResponse.error("채팅방 정보를 불러오는데 실패했습니다.")
+                    StandardResponse.error("채팅방 정보를 불러오는데 실패했습니다.")
             );
         }
     }
 
     @Operation(summary = "채팅방 참여", description = "채팅방에 참여합니다. 비공개 방인 경우 비밀번호가 필요합니다.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "채팅방 참여 성공",
-            content = @Content(schema = @Schema(implementation = JoinRoomSuccessResponse.class))),
-        @ApiResponse(responseCode = "400", description = "잘못된 요청",
-            content = @Content(schema = @Schema(implementation = StandardResponse.class))),
-        @ApiResponse(responseCode = "401", description = "비밀번호가 일치하지 않음",
-            content = @Content(schema = @Schema(implementation = StandardResponse.class),
-                examples = @ExampleObject(value = "{\"success\":false,\"message\":\"비밀번호가 일치하지 않습니다.\"}"))),
-        @ApiResponse(responseCode = "404", description = "채팅방을 찾을 수 없음",
-            content = @Content(schema = @Schema(implementation = StandardResponse.class))),
-        @ApiResponse(responseCode = "500", description = "서버 내부 오류",
-            content = @Content(schema = @Schema(implementation = StandardResponse.class)))
+            @ApiResponse(responseCode = "200", description = "채팅방 참여 성공",
+                    content = @Content(schema = @Schema(implementation = JoinRoomSuccessResponse.class))),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청",
+                    content = @Content(schema = @Schema(implementation = StandardResponse.class))),
+            @ApiResponse(responseCode = "401", description = "비밀번호가 일치하지 않음",
+                    content = @Content(schema = @Schema(implementation = StandardResponse.class),
+                            examples = @ExampleObject(value = "{\"success\":false,\"message\":\"비밀번호가 일치하지 않습니다.\"}"))),
+            @ApiResponse(responseCode = "404", description = "채팅방을 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = StandardResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 내부 오류",
+                    content = @Content(schema = @Schema(implementation = StandardResponse.class)))
     })
     @PostMapping("/{roomId}/join")
     public ResponseEntity<?> joinRoom(
@@ -266,12 +266,12 @@ public class RoomController {
             }
 
             RoomResponse roomResponse = mapToRoomResponse(joinedRoom, principal.getName());
-            
+
             return ResponseEntity.ok(
-                Map.of(
-                    "success", true,
-                    "data", roomResponse
-                )
+                    Map.of(
+                            "success", true,
+                            "data", roomResponse
+                    )
             );
 
         } catch (RuntimeException e) {
@@ -285,12 +285,12 @@ public class RoomController {
         } catch (Exception e) {
             log.error("채팅방 참여 에러", e);
             return ResponseEntity.status(500).body(
-                StandardResponse.error("채팅방 참여에 실패했습니다.")
+                    StandardResponse.error("채팅방 참여에 실패했습니다.")
             );
         }
     }
 
-    private RoomResponse mapToRoomResponse(Room room, String email) {
+    private RoomResponse mapToRoomResponse(Room room, String name) {
         User creator = userRepository.findById(room.getCreator()).orElse(null);
         if (creator == null) {
             throw new RuntimeException("Creator not found for room " + room.getId());
@@ -308,9 +308,7 @@ public class RoomController {
                 .map(UserResponse::from)
                 .toList();
 
-        // 현재 사용자 조회 (email 기반)
-        User currentUser = userRepository.findByEmail(email).orElse(null);
-        boolean isCreator = currentUser != null && room.getCreator().equals(currentUser.getId());
+        boolean isCreator = room.getCreator().equals(name);
 
         // 최근 10분간 메시지 수 조회
         LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);

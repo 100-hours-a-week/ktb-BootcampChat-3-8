@@ -14,6 +14,7 @@ import com.ktb.chatapp.event.AiMessageSavedEvent;
 import com.ktb.chatapp.event.AiMessageStartEvent;
 import com.ktb.chatapp.event.RoomCreatedEvent;
 import com.ktb.chatapp.event.RoomUpdatedEvent;
+import com.ktb.chatapp.event.SessionEndedEvent;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,20 @@ import org.springframework.stereotype.Component;
 public class SocketIOEventListener {
 
     private final SocketIOServer socketIOServer;
+
+    @EventListener
+    public void handleSessionEndedEvent(SessionEndedEvent event) {
+        try {
+            socketIOServer.getRoomOperations("user:" + event.getUserId())
+                    .sendEvent("session_ended", Map.of(
+                            "reason", event.getReason(),
+                            "message", event.getMessage()
+                    ));
+            log.info("session_ended 이벤트 발송: userId={}, reason={}", event.getUserId(), event.getReason());
+        } catch (Exception e) {
+            log.error("session_ended 이벤트 발송 실패: userId={}", event.getUserId(), e);
+        }
+    }
 
     @EventListener
     public void handleRoomCreatedEvent(RoomCreatedEvent event) {
@@ -53,9 +68,9 @@ public class SocketIOEventListener {
     public void handleAiMessageStartEvent(AiMessageStartEvent event) {
         try {
             Map<String, Object> data = Map.of(
-                "messageId", event.getMessageId(),
-                "aiType", event.getAiType(),
-                "timestamp", event.getStartTime()
+                    "messageId", event.getMessageId(),
+                    "aiType", event.getAiType(),
+                    "timestamp", event.getStartTime()
             );
             socketIOServer.getRoomOperations(event.getRoomId())
                     .sendEvent(AI_MESSAGE_START, data);
@@ -70,10 +85,10 @@ public class SocketIOEventListener {
     public void handleAiMessageChunkEvent(AiMessageChunkEvent event) {
         try {
             Map<String, Object> data = Map.of(
-                "messageId", event.getMessageId(),
-                "fullContent", event.getFullContent(),
-                "isCodeBlock", event.isCodeBlock(),
-                "isComplete", false
+                    "messageId", event.getMessageId(),
+                    "fullContent", event.getFullContent(),
+                    "isCodeBlock", event.isCodeBlock(),
+                    "isComplete", false
             );
             socketIOServer.getRoomOperations(event.getRoomId())
                     .sendEvent(AI_MESSAGE_CHUNK, data);
@@ -84,13 +99,13 @@ public class SocketIOEventListener {
 
     @EventListener
     public void handleAiMessageCompleteEvent(AiMessageSavedEvent event) {
-        
+
         try {
             Map<String, Object> data = Map.of(
-                "_id", event.getSavedMessageId(),
-                "content", event.getContent(),
-                "aiType", event.getAiType(),
-                "timestamp", event.getStartTime()
+                    "_id", event.getSavedMessageId(),
+                    "content", event.getContent(),
+                    "aiType", event.getAiType(),
+                    "timestamp", event.getStartTime()
             );
             socketIOServer.getRoomOperations(event.getRoomId())
                     .sendEvent(AI_MESSAGE_COMPLETE, data);
@@ -105,9 +120,9 @@ public class SocketIOEventListener {
     public void handleAiMessageErrorEvent(AiMessageErrorEvent event) {
         try {
             Map<String, Object> data = Map.of(
-                "messageId", event.getMessageId(),
-                "error", event.getErrorMessage(),
-                "aiType", event.getAiType()
+                    "messageId", event.getMessageId(),
+                    "error", event.getErrorMessage(),
+                    "aiType", event.getAiType()
             );
             socketIOServer.getRoomOperations(event.getRoomId())
                     .sendEvent(AI_MESSAGE_ERROR, data);

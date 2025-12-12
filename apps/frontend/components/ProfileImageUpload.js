@@ -49,7 +49,7 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
       setPreviewUrl(objectUrl);
 
       // 인증 정보 확인
-      if (!user) {
+      if (!user?.token) {
         throw new Error('인증 정보가 없습니다.');
       }
 
@@ -57,10 +57,13 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
       const formData = new FormData();
       formData.append('profileImage', file);
 
-      // 파일 업로드 요청 (HTTP Only Cookie가 자동으로 서버에 전송됨)
+      // 파일 업로드 요청
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/profile-image`, {
         method: 'POST',
-        credentials: 'include',
+        headers: {
+          'x-auth-token': user?.token,
+          'x-session-id': user?.sessionId
+        },
         body: formData
       });
 
@@ -70,7 +73,7 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
       }
 
       const data = await response.json();
-      
+
       // 로컬 스토리지의 사용자 정보 업데이트
       const updatedUser = {
         ...user,
@@ -90,7 +93,7 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
       console.error('Image upload error:', error);
       setError(error.message);
       setPreviewUrl(getProfileImageUrl(currentImage));
-      
+
       // 기존 objectUrl 정리
       if (previewUrl && previewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(previewUrl);
@@ -109,14 +112,16 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
       setError('');
 
       // 인증 정보 확인
-      if (!user) {
+      if (!user?.token) {
         throw new Error('인증 정보가 없습니다.');
       }
 
-      // HTTP Only Cookie가 자동으로 서버에 전송됨
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/profile-image`, {
         method: 'DELETE',
-        credentials: 'include'
+        headers: {
+          'x-auth-token': user?.token,
+          'x-session-id': user?.sessionId
+        }
       });
 
       if (!response.ok) {

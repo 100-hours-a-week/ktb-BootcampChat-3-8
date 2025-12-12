@@ -72,7 +72,7 @@ export const useRoomHandling = (
 
   const setupSocket = useCallback(async () => {
     try {
-      if (!user) {
+      if (!user?.token || !user?.sessionId) {
         throw new Error('Invalid authentication state');
       }
 
@@ -98,8 +98,11 @@ export const useRoomHandling = (
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
-      // HTTP Only Cookie가 자동으로 서버에 전송되므로 auth 옵션 불필요
       const socket = await socketService.connect({
+        auth: {
+          token: user.token,
+          sessionId: user.sessionId
+        },
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: MAX_SOCKET_RECONNECT_ATTEMPTS,
@@ -160,7 +163,7 @@ export const useRoomHandling = (
 
   const fetchRoomData = useCallback(async (roomId, attemptedJoin = false) => {
     try {
-      if (!user) {
+      if (!user?.token || !user?.sessionId) {
         await handleSessionError();
         throw new Error('인증 정보가 유효하지 않습니다.');
       }
@@ -169,14 +172,15 @@ export const useRoomHandling = (
         throw new Error('채팅방 정보가 올바르지 않습니다.');
       }
 
-      // HTTP Only Cookie가 자동으로 서버에 전송됨
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/rooms/${roomId}`,
         {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'x-auth-token': user.token,
+            'x-session-id': user.sessionId
           },
           credentials: 'include'
         }

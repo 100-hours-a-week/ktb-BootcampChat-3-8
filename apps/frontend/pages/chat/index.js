@@ -285,7 +285,7 @@ function ChatRoomsComponent() {
   }, [getRetryDelay]);
 
   const fetchRooms = useCallback(async (isLoadingMore = false) => {
-    if (!currentUser || isLoadingRef.current) {
+    if (!currentUser?.token || isLoadingRef.current) {
       return;
     }
 
@@ -457,14 +457,18 @@ function ChatRoomsComponent() {
   }, [fetchRooms]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser?.token) return;
 
     let isSubscribed = true;
 
     const connectSocket = async () => {
       try {
-        // HTTP Only Cookie가 자동으로 서버에 전송되므로 auth 옵션 불필요
-        const socket = await socketService.connect().catch(err => {
+        const socket = await socketService.connect({
+          auth: {
+            token: currentUser.token,
+            sessionId: currentUser.sessionId
+          }
+        }).catch(err => {
           console.log('Socket connection error:', err);
           router.push('/_error');
         });

@@ -56,7 +56,7 @@ public class ChatMessageHandler {
     private final BannedWordChecker bannedWordChecker;
     private final RateLimitService rateLimitService;
     private final MeterRegistry meterRegistry;
-    
+
     @OnEvent(CHAT_MESSAGE)
     public void handleChatMessage(SocketIOClient client, ChatMessageRequest data) {
         Timer.Sample timerSample = Timer.start(meterRegistry);
@@ -83,6 +83,18 @@ public class ChatMessageHandler {
             return;
         }
 
+        SessionValidationResult validation =
+                sessionService.validateSession(socketUser.id(), socketUser.authSessionId());
+        if (!validation.isValid()) {
+            recordError("session_expired");
+            client.sendEvent(ERROR, Map.of(
+                    "code", "SESSION_EXPIRED",
+                    "message", "세션이 만료되었습니다. 다시 로그인해주세요."
+            ));
+            timerSample.stop(createTimer("error", "session_expired"));
+            return;
+        }
+
         // Rate limit check
         RateLimitCheckResult rateLimitResult =
                 rateLimitService.checkRateLimit(socketUser.id(), 10000, Duration.ofMinutes(1));
@@ -102,14 +114,14 @@ public class ChatMessageHandler {
             timerSample.stop(createTimer("error", "rate_limit"));
             return;
         }
-        
+
         try {
             User sender = userRepository.findById(socketUser.id()).orElse(null);
             if (sender == null) {
                 recordError("user_not_found");
                 client.sendEvent(ERROR, Map.of(
-                    "code", "MESSAGE_ERROR",
-                    "message", "User not found"
+                        "code", "MESSAGE_ERROR",
+                        "message", "User not found"
                 ));
                 timerSample.stop(createTimer("error", "user_not_found"));
                 return;
@@ -120,8 +132,8 @@ public class ChatMessageHandler {
             if (room == null || !room.getParticipantIds().contains(socketUser.id())) {
                 recordError("room_access_denied");
                 client.sendEvent(ERROR, Map.of(
-                    "code", "MESSAGE_ERROR",
-                    "message", "채팅방 접근 권한이 없습니다."
+                        "code", "MESSAGE_ERROR",
+                        "message", "채팅방 접근 권한이 없습니다."
                 ));
                 timerSample.stop(createTimer("error", "room_access_denied"));
                 return;
@@ -130,7 +142,7 @@ public class ChatMessageHandler {
             MessageContent messageContent = data.getParsedContent();
 
             log.debug("Message received - type: {}, room: {}, userId: {}, hasFileData: {}",
-                data.getMessageType(), roomId, socketUser.id(), data.hasFileData());
+                    data.getMessageType(), roomId, socketUser.id(), data.hasFileData());
 
             if (bannedWordChecker.containsBannedWord(messageContent.getTrimmedContent())) {
                 recordError("banned_word");
@@ -170,14 +182,14 @@ public class ChatMessageHandler {
             timerSample.stop(createTimer("success", messageType));
 
             log.debug("Message processed - messageId: {}, type: {}, room: {}",
-                savedMessage.getId(), savedMessage.getType(), roomId);
+                    savedMessage.getId(), savedMessage.getType(), roomId);
 
         } catch (Exception e) {
             recordError("exception");
             log.error("Message handling error", e);
             client.sendEvent(ERROR, Map.of(
-                "code", "MESSAGE_ERROR",
-                "message", e.getMessage() != null ? e.getMessage() : "메시지 전송 중 오류가 발생했습니다."
+                    "code", "MESSAGE_ERROR",
+                    "message", e.getMessage() != null ? e.getMessage() : "메시지 전송 중 오류가 발생했습니다."
             ));
             timerSample.stop(createTimer("error", "exception"));
         }
@@ -203,7 +215,7 @@ public class ChatMessageHandler {
         message.setContent(messageContent.getTrimmedContent());
         message.setTimestamp(LocalDateTime.now());
         message.setMentions(messageContent.aiMentions());
-        
+
         // 메타데이터는 Map<String, Object>
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("fileType", file.getMimetype());

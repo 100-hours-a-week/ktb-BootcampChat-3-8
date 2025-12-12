@@ -1,5 +1,4 @@
-import { useRef, useEffect, useCallback, useMemo } from 'react';
-import { throttle } from '../utils/performanceUtils';
+import { useRef, useEffect, useCallback } from 'react';
 
 /**
  * 채팅 메시지 자동 스크롤 훅
@@ -16,8 +15,8 @@ import { throttle } from '../utils/performanceUtils';
  * @returns {Object} { containerRef, scrollToBottom, isNearBottom }
  */
 export const useAutoScroll = (
-  messages = [], 
-  currentUserId = null, 
+  messages = [],
+  currentUserId = null,
   isLoadingMessages = false,
   threshold = 100
 ) => {
@@ -25,7 +24,7 @@ export const useAutoScroll = (
   const isNearBottomRef = useRef(true);
   const previousMessagesLengthRef = useRef(0);
   const isAutoScrollingRef = useRef(false);
-  
+
   // 스크롤 복원을 위한 ref
   const previousScrollHeightRef = useRef(0);
   const previousScrollTopRef = useRef(0);
@@ -66,36 +65,25 @@ export const useAutoScroll = (
   }, []);
 
   /**
-   * Throttled scroll handler to improve performance
-   */
-  const throttledHandleScroll = useMemo(
-    () => throttle(() => {
-      // 자동 스크롤 중이면 무시
-      if (isAutoScrollingRef.current) return;
-
-      isNearBottomRef.current = checkIsNearBottom();
-    }, 100),
-    [checkIsNearBottom]
-  );
-
-  /**
    * 스크롤 이벤트 핸들러 - 사용자가 스크롤할 때 위치 추적
    */
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    container.addEventListener('scroll', throttledHandleScroll, { passive: true });
+    const handleScroll = () => {
+      // 자동 스크롤 중이면 무시
+      if (isAutoScrollingRef.current) return;
+
+      isNearBottomRef.current = checkIsNearBottom();
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
-      container.removeEventListener('scroll', throttledHandleScroll);
-
-      // Cancel pending throttled calls
-      if (throttledHandleScroll?.cancel) {
-        throttledHandleScroll.cancel();
-      }
+      container.removeEventListener('scroll', handleScroll);
     };
-  }, [throttledHandleScroll]);
+  }, [checkIsNearBottom]);
 
   /**
    * 이전 메시지 로딩 시작 시 스크롤 위치 저장

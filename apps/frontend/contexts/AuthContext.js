@@ -131,8 +131,7 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(async () => {
     try {
       // authService를 통해 로그아웃 API 호출
-      // HTTP Only Cookie가 자동으로 서버에 전송됨
-      await authService.logout();
+      await authService.logout(user?.token, user?.sessionId);
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
@@ -145,7 +144,7 @@ export const AuthProvider = ({ children }) => {
       // 로그인 페이지로 이동
       router.push('/');
     }
-  }, [saveUser, router]);
+  }, [user, saveUser, router]);
 
   // 회원가입
   const register = useCallback(async (userData) => {
@@ -157,12 +156,17 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = useCallback(async (updates) => {
     if (!user) return;
 
-    // HTTP Only Cookie가 자동으로 서버에 전송됨
-    const updatedUserData = await authService.updateProfile(updates);
+    const updatedUserData = await authService.updateProfile(
+      updates,
+      user.token,
+      user.sessionId
+    );
 
     const updatedUser = {
       ...user,
       ...updatedUserData,
+      token: user.token,
+      sessionId: user.sessionId,
       lastActivity: Date.now()
     };
 
@@ -186,47 +190,10 @@ export const AuthProvider = ({ children }) => {
     saveUser(updatedUser);
   }, [user, saveUser]);
 
-  // 토큰 갱신
-  const refreshToken = useCallback(async () => {
-    try {
-      if (!user) {
-        throw new Error('인증 정보가 없습니다.');
-      }
-
-      // HTTP Only Cookie가 자동으로 서버에 전송됨
-      const API_URL = process.env.NEXT_PUBLIC_API_URL;
-      const response = await fetch(`${API_URL}/api/auth/refresh-token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // 토큰은 HTTP Only Cookie로 설정되므로 localStorage에 저장하지 않음
-        // 사용자 활동 시간만 업데이트
-        const updatedUser = {
-          ...user,
-          lastActivity: Date.now()
-        };
-        saveUser(updatedUser);
-        return true;
-      }
-
-      throw new Error('토큰 갱신에 실패했습니다.');
-    } catch (error) {
-      console.error('Token refresh error:', error);
-      throw error;
-    }
-  }, [user, saveUser]);
-
   // 토큰 검증
   const verifyToken = useCallback(async () => {
     try {
-      if (!user) {
+      if (!user?.token || !user?.sessionId) {
         throw new Error('No authentication data found');
       }
 
@@ -236,12 +203,14 @@ export const AuthProvider = ({ children }) => {
         return true;
       }
 
-      // HTTP Only Cookie가 자동으로 서버에 전송됨
+      // authService를 통해 토큰 검증 (API 호출)
       const API_URL = process.env.NEXT_PUBLIC_API_URL;
       const response = await fetch(`${API_URL}/api/auth/verify-token`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-auth-token': user.token,
+          'x-session-id': user.sessionId
         },
         credentials: 'include'
       });
@@ -267,7 +236,44 @@ export const AuthProvider = ({ children }) => {
       }
       throw error;
     }
-  }, [user, refreshToken, logout]);
+  }, [user]);
+
+  // 토큰 갱신
+  const refreshToken = useCallback(async () => {
+    try {
+      if (!user?.token) {
+        throw new Error('인증 정보가 없습니다.');
+      }
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL;
+      const response = await fetch(`${API_URL}/api/auth/refresh-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-auth-token': user.token,
+          'x-session-id': user.sessionId
+        },
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.token) {
+        const updatedUser = {
+          ...user,
+          token: data.token,
+          lastActivity: Date.now()
+        };
+        saveUser(updatedUser);
+        return data.token;
+      }
+
+      throw new Error('토큰 갱신에 실패했습니다.');
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      throw error;
+    }
+  }, [user, saveUser]);
 
   const value = {
     user,
