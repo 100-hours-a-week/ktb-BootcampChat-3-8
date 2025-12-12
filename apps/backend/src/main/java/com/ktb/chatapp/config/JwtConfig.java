@@ -27,8 +27,8 @@ public class JwtConfig {
     @Bean
     public JwtEncoder jwtEncoder() {
         SecretKey key = new SecretKeySpec(
-            jwtSecret.getBytes(StandardCharsets.UTF_8),
-            "HmacSHA256"
+                jwtSecret.getBytes(StandardCharsets.UTF_8),
+                "HmacSHA256"
         );
         return new NimbusJwtEncoder(new ImmutableSecret<>(key));
     }
@@ -40,18 +40,18 @@ public class JwtConfig {
     @Bean
     public JwtDecoder jwtDecoder() {
         SecretKeySpec secretKey = new SecretKeySpec(
-            jwtSecret.getBytes(StandardCharsets.UTF_8),
-            "HmacSHA256"
+                jwtSecret.getBytes(StandardCharsets.UTF_8),
+                "HmacSHA256"
         );
 
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(secretKey)
-            .macAlgorithm(MacAlgorithm.HS256)
-            .build();
+                .macAlgorithm(MacAlgorithm.HS256)
+                .build();
 
-        // Custom Validator 추가 (userId 클레임 검증)
+        // Custom Validator 추가 (sessionId, userId 클레임 검증)
         OAuth2TokenValidator<Jwt> validator = new CustomJwtValidator();
         OAuth2TokenValidator<Jwt> defaultValidators = JwtValidators.createDefault();
-        
+
         // 기본 검증기와 커스텀 검증기를 조합
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(defaultValidators, validator));
 
@@ -65,13 +65,13 @@ public class JwtConfig {
     @Bean("expiredTokenDecoder")
     public JwtDecoder expiredTokenDecoder() {
         SecretKeySpec secretKey = new SecretKeySpec(
-            jwtSecret.getBytes(StandardCharsets.UTF_8),
-            "HmacSHA256"
+                jwtSecret.getBytes(StandardCharsets.UTF_8),
+                "HmacSHA256"
         );
 
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(secretKey)
-            .macAlgorithm(MacAlgorithm.HS256)
-            .build();
+                .macAlgorithm(MacAlgorithm.HS256)
+                .build();
 
         // 시간 검증을 제외한 커스텀 검증기만 적용
         OAuth2TokenValidator<Jwt> validator = new CustomJwtValidator();
@@ -82,20 +82,20 @@ public class JwtConfig {
 
     /**
      * Custom JWT Validator
-     * jti, userId, sessionVersion 클레임이 존재하는지 검증
+     * sessionId와 userId 클레임이 존재하는지 검증
      */
     private static class CustomJwtValidator implements OAuth2TokenValidator<Jwt> {
 
         @Override
         public OAuth2TokenValidatorResult validate(Jwt jwt) {
-            // jti 클레임 검증
-            String jti = jwt.getId();
-            if (jti == null || jti.isEmpty()) {
+            // sessionId 클레임 검증
+            String sessionId = jwt.getClaimAsString("sessionId");
+            if (sessionId == null || sessionId.isEmpty()) {
                 BearerTokenError error = new BearerTokenError(
-                    "invalid_token",
-                    org.springframework.http.HttpStatus.UNAUTHORIZED,
-                    "Missing required claim: jti",
-                    null
+                        "invalid_token",
+                        null,
+                        "Missing required claim: sessionId",
+                        null
                 );
                 return OAuth2TokenValidatorResult.failure(error);
             }
@@ -104,22 +104,10 @@ public class JwtConfig {
             String userId = jwt.getClaimAsString("userId");
             if (userId == null || userId.isEmpty()) {
                 BearerTokenError error = new BearerTokenError(
-                    "invalid_token",
-                    org.springframework.http.HttpStatus.UNAUTHORIZED,
-                    "Missing required claim: userId",
-                    null
-                );
-                return OAuth2TokenValidatorResult.failure(error);
-            }
-
-            // sessionVersion 클레임 검증
-            Long sessionVersion = jwt.getClaim("sessionVersion");
-            if (sessionVersion == null) {
-                BearerTokenError error = new BearerTokenError(
-                    "invalid_token",
-                    org.springframework.http.HttpStatus.UNAUTHORIZED,
-                    "Missing required claim: sessionVersion",
-                    null
+                        "invalid_token",
+                        null,
+                        "Missing required claim: userId",
+                        null
                 );
                 return OAuth2TokenValidatorResult.failure(error);
             }
