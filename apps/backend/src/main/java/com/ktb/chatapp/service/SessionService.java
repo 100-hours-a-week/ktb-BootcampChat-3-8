@@ -1,12 +1,16 @@
 package com.ktb.chatapp.service;
 
+import com.ktb.chatapp.config.CacheConfig;
 import com.ktb.chatapp.model.Session;
+import com.ktb.chatapp.model.User;
+import com.ktb.chatapp.repository.UserRepository;
 import com.ktb.chatapp.service.session.SessionStore;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.convert.DurationStyle;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 import static com.ktb.chatapp.model.Session.SESSION_TTL;
@@ -17,6 +21,7 @@ import static com.ktb.chatapp.model.Session.SESSION_TTL;
 public class SessionService {
 
     private final SessionStore sessionStore;
+    private final UserRepository userRepository;
     public static final long SESSION_TTL_SEC = DurationStyle.detectAndParse(SESSION_TTL).getSeconds();
     private static final long SESSION_TIMEOUT = SESSION_TTL_SEC * 1000;
 
@@ -137,6 +142,9 @@ public class SessionService {
             } else {
                 sessionStore.deleteAll(userId);
             }
+
+            // 캐시 무효화 (email 기반으로 캐시 삭제)
+            evictUserCache(userId);
         } catch (Exception e) {
             log.error("Session removal error for userId: {}, sessionId: {}", userId, sessionId, e);
             throw new RuntimeException("세션 삭제 중 오류가 발생했습니다.", e);
@@ -146,12 +154,15 @@ public class SessionService {
     public void removeAllUserSessions(String userId) {
         try {
             sessionStore.deleteAll(userId);
+
+            // 캐시 무효화
+            evictUserCache(userId);
         } catch (Exception e) {
             log.error("Remove all sessions error for userId: {}", userId, e);
             throw new RuntimeException("모든 세션 삭제 중 오류가 발생했습니다.", e);
         }
     }
-    
+
     void removeSession(String userId) {
         removeSession(userId, null);
     }
@@ -159,7 +170,7 @@ public class SessionService {
     SessionData getActiveSession(String userId) {
         try {
             Session session = sessionStore.findByUserId(userId).orElse(null);
-            
+
             if (session == null) {
                 return null;
             }
@@ -170,5 +181,19 @@ public class SessionService {
             return null;
         }
     }
-    
+
+    /**
+     * 사용자 캐시 무효화 (userId -> email 조회 후 캐시 삭제)
+     */
+    @CacheEvict(value = CacheConfig.USER_PROFILE_CACHE, key = "#result")
+    private void evictUserCache(String userId) {
+        String email = userRepository.findById(userId)
+                .map(User::getEmail)
+                .orElse(null);
+
+        if (email != null && !email.isBlank()) {
+            log.debug("User Cache evict : {}", email);
+        }
+    }
+
 }
