@@ -1,18 +1,16 @@
 package com.ktb.chatapp.service;
 
-import com.ktb.chatapp.config.CacheConfig;
 import com.ktb.chatapp.dto.ProfileImageResponse;
 import com.ktb.chatapp.dto.UpdateProfileRequest;
 import com.ktb.chatapp.dto.UserResponse;
+import com.ktb.chatapp.event.UserCacheEvictEvent;
 import com.ktb.chatapp.model.User;
 import com.ktb.chatapp.repository.UserRepository;
 import com.ktb.chatapp.util.FileUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
-import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,6 +30,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final FileService fileService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
@@ -47,9 +46,7 @@ public class UserService {
      * 현재 사용자 프로필 조회
      * @param email 사용자 이메일
      */
-    @Cacheable(value = CacheConfig.USER_PROFILE_CACHE, key = "#email")
     public UserResponse getCurrentUserProfile(String email) {
-        log.debug("Cache miss - Loading user profile from DB: {}", email);
         User user = userRepository.findByEmail(email.toLowerCase())
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
         return UserResponse.from(user);
@@ -59,7 +56,6 @@ public class UserService {
      * 사용자 프로필 업데이트
      * @param email 사용자 이메일
      */
-    @CacheEvict(value = CacheConfig.USER_PROFILE_CACHE, key = "#email")
     public UserResponse updateUserProfile(String email, UpdateProfileRequest request) {
         User user = userRepository.findByEmail(email.toLowerCase())
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
@@ -69,7 +65,12 @@ public class UserService {
         user.setUpdatedAt(LocalDateTime.now());
 
         User updatedUser = userRepository.save(user);
-        log.info("사용자 프로필 업데이트 완료 - ID: {}, Name: {}, Cache evicted", user.getId(), request.getName());
+        log.info("사용자 프로필 업데이트 완료 - ID: {}, Name: {}", user.getId(), request.getName());
+
+        // 캐시 무효화 이벤트 발행
+        eventPublisher.publishEvent(
+                UserCacheEvictEvent.withEmail(this, email, "profile_updated")
+        );
 
         return UserResponse.from(updatedUser);
     }
@@ -78,7 +79,6 @@ public class UserService {
      * 프로필 이미지 업로드
      * @param email 사용자 이메일
      */
-    @CacheEvict(value = CacheConfig.USER_PROFILE_CACHE, key = "#email")
     public ProfileImageResponse uploadProfileImage(String email, MultipartFile file) {
         // 사용자 조회
         User user = userRepository.findByEmail(email.toLowerCase())
@@ -100,7 +100,12 @@ public class UserService {
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
 
-        log.info("프로필 이미지 업로드 완료 - User ID: {}, File: {}, Cache evicted", user.getId(), profileImageUrl);
+        log.info("프로필 이미지 업로드 완료 - User ID: {}, File: {}", user.getId(), profileImageUrl);
+
+        // 캐시 무효화 이벤트 발행
+        eventPublisher.publishEvent(
+                UserCacheEvictEvent.withEmail(this, email, "profile_image_uploaded")
+        );
 
         return new ProfileImageResponse(
                 true,
@@ -112,9 +117,7 @@ public class UserService {
     /**
      * 특정 사용자 프로필 조회 (userId 기반)
      */
-    @Cacheable(value = CacheConfig.USER_PROFILE_CACHE, key = "'userId:' + #userId")
     public UserResponse getUserProfile(String userId) {
-        log.debug("Cache miss - Loading user profile from DB by userId: {}", userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
 
@@ -177,7 +180,6 @@ public class UserService {
      * 프로필 이미지 삭제
      * @param email 사용자 이메일
      */
-    @CacheEvict(value = CacheConfig.USER_PROFILE_CACHE, key = "#email")
     public void deleteProfileImage(String email) {
         User user = userRepository.findByEmail(email.toLowerCase())
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
@@ -187,7 +189,12 @@ public class UserService {
             user.setProfileImage("");
             user.setUpdatedAt(LocalDateTime.now());
             userRepository.save(user);
-            log.info("프로필 이미지 삭제 완료 - User ID: {}, Cache evicted", user.getId());
+            log.info("프로필 이미지 삭제 완료 - User ID: {}", user.getId());
+
+            // 캐시 무효화 이벤트 발행
+            eventPublisher.publishEvent(
+                    UserCacheEvictEvent.withEmail(this, email, "profile_image_deleted")
+            );
         }
     }
 
@@ -195,7 +202,6 @@ public class UserService {
      * 회원 탈퇴 처리
      * @param email 사용자 이메일
      */
-    @CacheEvict(value = CacheConfig.USER_PROFILE_CACHE, key = "#email")
     public void deleteUserAccount(String email) {
         User user = userRepository.findByEmail(email.toLowerCase())
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
@@ -205,19 +211,11 @@ public class UserService {
         }
 
         userRepository.delete(user);
-        log.info("회원 탈퇴 완료 - User ID: {}, Cache evicted", user.getId());
-    }
+        log.info("회원 탈퇴 완료 - User ID: {}", user.getId());
 
-    /**
-     * 로그인 시 사용자 프로필 캐시 등록
-     * @param email 사용자 이메일
-     * @return 캐시에 등록된 사용자 프로필
-     */
-    @CachePut(value = CacheConfig.USER_PROFILE_CACHE, key = "#email")
-    public UserResponse cacheUserProfileOnLogin(String email) {
-        log.debug("Cache put - Registering user profile on login: {}", email);
-        User user = userRepository.findByEmail(email.toLowerCase())
-                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
-        return UserResponse.from(user);
+        // 캐시 무효화 이벤트 발행
+        eventPublisher.publishEvent(
+                UserCacheEvictEvent.withEmail(this, email, "account_deleted")
+        );
     }
 }
