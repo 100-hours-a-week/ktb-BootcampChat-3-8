@@ -44,10 +44,8 @@ public class RoomResponse {
     private Integer recentMessageCount;
 
     @Schema(description = "참여자 수", example = "5")
-    @JsonGetter("participantsCount")
-    public int getParticipantsCount() {
-        return participants != null ? participants.size() : 0;
-    }
+    @JsonProperty("participantsCount")
+    private Integer participantsCount;
 
     @Schema(description = "채팅방 생성 시간 (ISO 8601 형식)", example = "2025-11-18T12:34:56.789Z")
     @JsonGetter("createdAt")

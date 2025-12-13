@@ -27,11 +27,21 @@ public interface RoomRepository extends MongoRepository<Room, String> {
     @Query(value = "{}", fields = "{ '_id': 1 }")
     Optional<Room> findOneForHealthCheck();
 
-    @Query("{'_id': ?0}")
-    @Update("{'$addToSet': {'participantIds': ?1}}")
+    /**
+     * 참가자 추가 (원자적 업데이트 + participantCount 동기화)
+     * $addToSet: 중복 방지하며 배열에 추가
+     * $inc: participantCount 증가 (추가 성공 시에만)
+     */
+    @Query("{'_id': ?0, 'participantIds': {$ne: ?1}}")
+    @Update("{'$addToSet': {'participantIds': ?1}, '$inc': {'participantCount': 1}}")
     void addParticipant(String roomId, String userId);
 
-    @Query("{'_id': ?0}")
-    @Update("{'$pull': {'participantIds': ?1}}")
+    /**
+     * 참가자 제거 (원자적 업데이트 + participantCount 동기화)
+     * $pull: 배열에서 제거
+     * $inc: participantCount 감소 (제거 성공 시에만)
+     */
+    @Query("{'_id': ?0, 'participantIds': ?1}")
+    @Update("{'$pull': {'participantIds': ?1}, '$inc': {'participantCount': -1}}")
     void removeParticipant(String roomId, String userId);
 }

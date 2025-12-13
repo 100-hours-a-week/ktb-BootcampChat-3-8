@@ -23,7 +23,11 @@ import org.springframework.data.mongodb.core.mapping.Field;
 @AllArgsConstructor
 @Document(collection = "rooms")
 @CompoundIndexes({
-    @CompoundIndex(name = "name_createdAt_idx", def = "{'name': 1, 'createdAt': -1}")
+    @CompoundIndex(name = "name_createdAt_idx", def = "{'name': 1, 'createdAt': -1}"),
+    // 참가자 수 기준 정렬 최적화 (인기순 정렬)
+    @CompoundIndex(name = "participantCount_createdAt_idx", def = "{'participantCount': -1, 'createdAt': -1}"),
+    // 생성일 기준 정렬 최적화 (최신순 정렬)
+    @CompoundIndex(name = "createdAt_participantCount_idx", def = "{'createdAt': -1, 'participantCount': -1}")
 })
 public class Room {
 
@@ -47,6 +51,16 @@ public class Room {
     @Field("participantIds")
     @Builder.Default
     private Set<String> participantIds = new HashSet<>();
+
+    /**
+     * 참가자 수 (캐시 필드 - 성능 최적화)
+     * Repository 레벨에서 자동 동기화됨
+     * @see RoomRepository#addParticipant
+     * @see RoomRepository#removeParticipant
+     */
+    @Indexed
+    @Builder.Default
+    private int participantCount = 0;
     
     /**
      * 방에 참가자를 추가한다.
@@ -57,7 +71,9 @@ public class Room {
         if (this.participantIds == null) {
             this.participantIds = new HashSet<>();
         }
-        this.participantIds.add(userId);
+        if(this.participantIds.add(userId)) {
+            this.participantCount = this.participantIds.size();
+        };
     }
     
     /**
@@ -67,7 +83,9 @@ public class Room {
      */
     public void removeParticipant(String userId) {
         if (this.participantIds != null) {
-            this.participantIds.remove(userId);
+            if(this.participantIds.remove(userId)) {
+                this.participantCount = participantIds.size();
+            };
         }
     }
     
@@ -78,14 +96,5 @@ public class Room {
      */
     public boolean isEmpty() {
         return this.participantIds == null || this.participantIds.isEmpty();
-    }
-    
-    /**
-     * 방의 참가자 수를 반환한다.
-     *
-     * @return 참가자 수
-     */
-    public int getParticipantCount() {
-        return this.participantIds != null ? this.participantIds.size() : 0;
     }
 }

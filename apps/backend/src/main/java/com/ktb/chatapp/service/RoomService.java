@@ -57,10 +57,10 @@ public class RoomService {
                 ? Sort.Direction.DESC
                 : Sort.Direction.ASC;
 
-            // 정렬 필드 매핑 (participantsCount는 특별 처리 필요)
+            // 정렬 필드 매핑
             String sortField = pageRequest.getSortField();
             if ("participantsCount".equals(sortField)) {
-                sortField = "participantIds"; // MongoDB 필드명으로 변경
+                sortField = "participantCount"; // participantCount 필드 직접 사용 (인덱스 활용)
             }
 
             // Pageable 객체 생성
@@ -265,6 +265,7 @@ public class RoomService {
             .hasPassword(room.isHasPassword())
             .creator(creator)
             .participants(participants)
+            .participantsCount(room.getParticipantCount()) // participantCount 필드 직접 사용 (성능 최적화)
             .createdAtDateTime(room.getCreatedAt())
             .isCreator(creator != null && creator.getId().equals(name))
             .recentMessageCount((int) recentMessageCount)
