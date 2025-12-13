@@ -136,7 +136,14 @@ public class UserController {
             return ResponseEntity.badRequest().body(StandardResponse.error(e.getMessage()));
         } catch (Exception e) {
             log.error("프로필 이미지 업로드 중 오류 발생: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(StandardResponse.error("이미지 업로드 중 오류가 발생했습니다."));
+            String errorMessage = e.getMessage();
+            String userMessage = "이미지 업로드 중 오류가 발생했습니다.";
+            if (errorMessage != null && (errorMessage.contains("403") || errorMessage.contains("Forbidden"))) {
+                userMessage = "S3 권한이 없습니다. AWS 관리자에게 권한을 요청해주세요.";
+            } else if (errorMessage != null && errorMessage.contains("S3")) {
+                userMessage = "S3 업로드에 실패했습니다: " + errorMessage;
+            }
+            return ResponseEntity.internalServerError().body(StandardResponse.error(userMessage));
         }
     }
 

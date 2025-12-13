@@ -24,7 +24,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
-@Service
+// @Service // S3로 전환하여 비활성화
 public class LocalFileService implements FileService {
 
     private final Path fileStorageLocation;
