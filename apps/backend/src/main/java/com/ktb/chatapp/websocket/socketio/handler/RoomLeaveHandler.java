@@ -5,6 +5,7 @@ import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.annotation.OnEvent;
 import com.ktb.chatapp.dto.MessageResponse;
 import com.ktb.chatapp.dto.UserResponse;
+import com.ktb.chatapp.event.RoomParticipantChangedEvent;
 import com.ktb.chatapp.model.Message;
 import com.ktb.chatapp.model.MessageType;
 import com.ktb.chatapp.model.Room;
@@ -22,6 +23,7 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import static com.ktb.chatapp.websocket.socketio.SocketIOEvents.*;
@@ -42,6 +44,7 @@ public class RoomLeaveHandler {
     private final UserRepository userRepository;
     private final UserRooms userRooms;
     private final MessageResponseMapper messageResponseMapper;
+    private final ApplicationEventPublisher eventPublisher;
     
     @OnEvent(LEAVE_ROOM)
     public void handleLeaveRoom(SocketIOClient client, String roomId) {
@@ -68,7 +71,16 @@ public class RoomLeaveHandler {
             }
             
             roomRepository.removeParticipant(roomId, userId);
-            
+
+            // Publish room participant changed event for cache invalidation
+            try {
+                eventPublisher.publishEvent(
+                    RoomParticipantChangedEvent.left(this, roomId, userId)
+                );
+            } catch (Exception e) {
+                log.error("Failed to publish room participant left event", e);
+            }
+
             client.leaveRoom(roomId);
             userRooms.remove(userId, roomId);
             

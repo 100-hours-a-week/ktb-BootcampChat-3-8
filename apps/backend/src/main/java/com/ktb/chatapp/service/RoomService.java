@@ -1,7 +1,9 @@
 package com.ktb.chatapp.service;
 
+import com.ktb.chatapp.config.CacheConfig;
 import com.ktb.chatapp.dto.*;
 import com.ktb.chatapp.event.RoomCreatedEvent;
+import com.ktb.chatapp.event.RoomParticipantChangedEvent;
 import com.ktb.chatapp.event.RoomUpdatedEvent;
 import com.ktb.chatapp.model.Room;
 import com.ktb.chatapp.model.User;
@@ -12,14 +14,17 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +38,7 @@ public class RoomService {
     private final MessageRepository messageRepository;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserService userService;
 
     public RoomsResponse getAllRoomsWithPagination(
             com.ktb.chatapp.dto.PageRequest pageRequest, String name) {
@@ -168,15 +174,20 @@ public class RoomService {
         }
 
         Room savedRoom = roomRepository.save(room);
-        
+
         // Publish event for room created
         try {
             RoomResponse roomResponse = mapToRoomResponse(savedRoom, name);
             eventPublisher.publishEvent(new RoomCreatedEvent(this, roomResponse));
+
+            // 방 참가 이벤트 발행 (방 생성자가 자동 참가)
+            eventPublisher.publishEvent(
+                    RoomParticipantChangedEvent.joined(this, savedRoom.getId(), creator.getId())
+            );
         } catch (Exception e) {
             log.error("roomCreated 이벤트 발행 실패", e);
         }
-        
+
         return savedRoom;
     }
 
@@ -202,16 +213,25 @@ public class RoomService {
         }
 
         // 이미 참여중인지 확인
-        if (!room.getParticipantIds().contains(user.getId())) {
+        boolean isNewParticipant = !room.getParticipantIds().contains(user.getId());
+
+        if (isNewParticipant) {
             // 채팅방 참여
             room.getParticipantIds().add(user.getId());
             room = roomRepository.save(room);
         }
-        
-        // Publish event for room updated
+
+        // Publish events
         try {
             RoomResponse roomResponse = mapToRoomResponse(room, name);
             eventPublisher.publishEvent(new RoomUpdatedEvent(this, roomId, roomResponse));
+
+            // 새로 참가한 경우만 참가 이벤트 발행
+            if (isNewParticipant) {
+                eventPublisher.publishEvent(
+                        RoomParticipantChangedEvent.joined(this, roomId, user.getId())
+                );
+            }
         } catch (Exception e) {
             log.error("roomUpdate 이벤트 발행 실패", e);
         }
@@ -222,12 +242,18 @@ public class RoomService {
     private RoomResponse mapToRoomResponse(Room room, String name) {
         if (room == null) return null;
 
-        User creator = null;
+        // UserService를 통해 캐시된 User 정보 조회
+        UserResponse creator = null;
         if (room.getCreator() != null) {
-            creator = userRepository.findById(room.getCreator()).orElse(null);
+            try {
+                creator = userService.getUserProfile(room.getCreator());
+            } catch (Exception e) {
+                log.debug("Creator not found: {}", room.getCreator());
+            }
         }
 
-        List<User> participants = userRepository.findAllByIdIn(room.getParticipantIds());
+        // 방별 참가자 목록 캐시에서 조회
+        List<UserResponse> participants = getRoomParticipants(room.getId());
 
         // 최근 10분간 메시지 수 조회
         LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
@@ -237,22 +263,39 @@ public class RoomService {
             .id(room.getId())
             .name(room.getName() != null ? room.getName() : "제목 없음")
             .hasPassword(room.isHasPassword())
-            .creator(creator != null ? UserResponse.builder()
-                .id(creator.getId())
-                .name(creator.getName() != null ? creator.getName() : "알 수 없음")
-                .email(creator.getEmail() != null ? creator.getEmail() : "")
-                .build() : null)
-            .participants(participants.stream()
-                .filter(p -> p != null && p.getId() != null)
-                .map(p -> UserResponse.builder()
-                    .id(p.getId())
-                    .name(p.getName() != null ? p.getName() : "알 수 없음")
-                    .email(p.getEmail() != null ? p.getEmail() : "")
-                    .build())
-                .collect(Collectors.toList()))
+            .creator(creator)
+            .participants(participants)
             .createdAtDateTime(room.getCreatedAt())
             .isCreator(creator != null && creator.getId().equals(name))
             .recentMessageCount((int) recentMessageCount)
             .build();
+    }
+
+    /**
+     * 방별 참가자 목록 조회 (캐시 활용)
+     * @param roomId 방 ID
+     * @return 참가자 목록
+     */
+    @Cacheable(value = CacheConfig.ROOM_PARTICIPANTS_CACHE, key = "#roomId")
+    public List<UserResponse> getRoomParticipants(String roomId) {
+        log.debug("Cache miss - Loading room participants from DB: {}", roomId);
+
+        Room room = roomRepository.findById(roomId).orElse(null);
+        if (room == null) {
+            return List.of();
+        }
+
+        // 각 참가자 정보를 UserService 캐시에서 조회
+        return room.getParticipantIds().stream()
+            .map(userId -> {
+                try {
+                    return userService.getUserProfile(userId);
+                } catch (UsernameNotFoundException e) {
+                    log.debug("Participant not found: {}", userId);
+                    return null;
+                }
+            })
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
     }
 }

@@ -39,6 +39,7 @@ public class UserCacheEventListener {
 
     /**
      * 캐시 무효화 이벤트 처리 (비동기)
+     * email과 userId 모두 캐시 무효화
      */
     @Async
     @EventListener
@@ -47,17 +48,32 @@ public class UserCacheEventListener {
                 event.getReason(), event.getUserId(), event.getEmail());
 
         String email = event.getEmail();
+        String userId = event.getUserId();
 
         // email이 없으면 userId로 조회
-        if (email == null && event.getUserId() != null) {
-            email = userRepository.findById(event.getUserId())
+        if (email == null && userId != null) {
+            email = userRepository.findById(userId)
                     .map(User::getEmail)
                     .orElse(null);
         }
 
+        // userId가 없으면 email로 조회
+        if (userId == null && email != null) {
+            userId = userRepository.findByEmail(email)
+                    .map(User::getId)
+                    .orElse(null);
+        }
+
+        // email 기반 캐시 무효화
         if (email != null) {
-            evictUserCache(email);
-            log.info("User cache evicted - Email: {}, Reason: {}", email, event.getReason());
+            evictUserCacheByEmail(email);
+            log.info("User cache evicted by email - Email: {}, Reason: {}", email, event.getReason());
+        }
+
+        // userId 기반 캐시 무효화 (Room 참가자 목록용)
+        if (userId != null) {
+            evictUserCacheByUserId(userId);
+            log.info("User cache evicted by userId - UserId: {}, Reason: {}", userId, event.getReason());
         }
     }
 
@@ -70,23 +86,39 @@ public class UserCacheEventListener {
         log.debug("SessionEndedEvent received - UserId: {}, Reason: {}",
                 event.getUserId(), event.getReason());
 
-        String email = userRepository.findById(event.getUserId())
+        String userId = event.getUserId();
+        String email = userRepository.findById(userId)
                 .map(User::getEmail)
                 .orElse(null);
 
+        // email 기반 캐시 무효화
         if (email != null) {
-            evictUserCache(email);
-            log.info("User cache evicted on session end - Email: {}, Reason: {}",
+            evictUserCacheByEmail(email);
+            log.info("User cache evicted by email on session end - Email: {}, Reason: {}",
                     email, event.getReason());
+        }
+
+        // userId 기반 캐시 무효화
+        if (userId != null) {
+            evictUserCacheByUserId(userId);
+            log.info("User cache evicted by userId on session end - UserId: {}, Reason: {}",
+                    userId, event.getReason());
         }
     }
 
     /**
-     * 실제 캐시 무효화 수행
+     * 실제 캐시 무효화 수행 (email 기반)
      */
     @CacheEvict(value = CacheConfig.USER_PROFILE_CACHE, key = "#email")
-    private void evictUserCache(String email) {
-        // 캐시 무효화는 @CacheEvict 애노테이션으로 처리됨
+    private void evictUserCacheByEmail(String email) {
         log.debug("Cache evicted for email: {}", email);
+    }
+
+    /**
+     * 실제 캐시 무효화 수행 (userId 기반)
+     */
+    @CacheEvict(value = CacheConfig.USER_PROFILE_CACHE, key = "'userId:' + #userId")
+    private void evictUserCacheByUserId(String userId) {
+        log.debug("Cache evicted for userId: {}", userId);
     }
 }

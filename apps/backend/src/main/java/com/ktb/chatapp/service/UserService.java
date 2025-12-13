@@ -1,5 +1,6 @@
 package com.ktb.chatapp.service;
 
+import com.ktb.chatapp.config.CacheConfig;
 import com.ktb.chatapp.dto.ProfileImageResponse;
 import com.ktb.chatapp.dto.UpdateProfileRequest;
 import com.ktb.chatapp.dto.UserResponse;
@@ -10,6 +11,7 @@ import com.ktb.chatapp.util.FileUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -117,7 +119,9 @@ public class UserService {
     /**
      * 특정 사용자 프로필 조회 (userId 기반)
      */
+    @Cacheable(value = CacheConfig.USER_PROFILE_CACHE, key = "'userId:' + #userId")
     public UserResponse getUserProfile(String userId) {
+        log.debug("Cache miss - Loading user profile from DB by userId: {}", userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
 

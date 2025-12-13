@@ -7,6 +7,7 @@ import com.ktb.chatapp.dto.FetchMessagesRequest;
 import com.ktb.chatapp.dto.FetchMessagesResponse;
 import com.ktb.chatapp.dto.JoinRoomSuccessResponse;
 import com.ktb.chatapp.dto.UserResponse;
+import com.ktb.chatapp.event.RoomParticipantChangedEvent;
 import com.ktb.chatapp.model.Message;
 import com.ktb.chatapp.model.MessageType;
 import com.ktb.chatapp.model.Room;
@@ -20,6 +21,7 @@ import java.util.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import static com.ktb.chatapp.websocket.socketio.SocketIOEvents.*;
@@ -42,6 +44,7 @@ public class RoomJoinHandler {
     private final MessageLoader messageLoader;
     private final MessageResponseMapper messageResponseMapper;
     private final RoomLeaveHandler roomLeaveHandler;
+    private final ApplicationEventPublisher eventPublisher;
     
     @OnEvent(JOIN_ROOM)
     public void handleJoinRoom(SocketIOClient client, String roomId) {
@@ -74,6 +77,15 @@ public class RoomJoinHandler {
 
             // MongoDB의 $addToSet 연산자를 사용한 원자적 업데이트
             roomRepository.addParticipant(roomId, userId);
+
+            // Publish room participant changed event for cache invalidation
+            try {
+                eventPublisher.publishEvent(
+                    RoomParticipantChangedEvent.joined(this, roomId, userId)
+                );
+            } catch (Exception e) {
+                log.error("Failed to publish room participant joined event", e);
+            }
 
             // Join socket room and add to user's room set
             client.joinRoom(roomId);

@@ -29,12 +29,16 @@ public class CacheConfig {
      */
     public static final String USER_CACHE = "user";
     public static final String USER_PROFILE_CACHE = "userProfile";
+    public static final String ROOM_PARTICIPANTS_CACHE = "roomParticipants";
 
     @Value("${cache.user.ttl:24h}")
     private String userCacheTtl;
 
     @Value("${cache.user-profile.ttl:24h}")
     private String userProfileCacheTtl;
+
+    @Value("${cache.room-participants.ttl:30m}")
+    private String roomParticipantsTtl;
 
     @Value("${cache.default.ttl:30m}")
     private String defaultCacheTtl;
@@ -70,6 +74,11 @@ public class CacheConfig {
         // userProfile 캐시: 사용자 프로필 정보용
         cacheConfigurations.put(USER_PROFILE_CACHE,
                 defaultConfig.entryTtl(parseDuration(userProfileCacheTtl))
+        );
+
+        // roomParticipants 캐시: 방별 참가자 정보 (UserResponse 리스트)
+        cacheConfigurations.put(ROOM_PARTICIPANTS_CACHE,
+                defaultConfig.entryTtl(parseDuration(roomParticipantsTtl))
         );
 
         return RedisCacheManager.builder(connectionFactory)
